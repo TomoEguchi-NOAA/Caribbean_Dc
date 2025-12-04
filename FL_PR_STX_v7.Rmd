@@ -11,7 +11,7 @@ This version (v.4) uses Poisson observation model.
 
 In this version (v.5), the growth rate parameters are treated as a linear function of latitude. 
 
-In this version (v.6), another parameter (probability of nesting) was added to accomodate the fact that not all females nest every year. No latitude covariate is included.
+In this version (v.6), another parameter (probability of nesting) was added to accommodate the fact that not all females nest every year. No latitude covariate is included.
 
 In this version (v.7), I greatly simplified the model to have a total abundance (N), which is subdivided into 73 beaches. Then for each beach the same proportion (p) nests annually. Then, they are observed - should add a covariate for observation effort. 
 
