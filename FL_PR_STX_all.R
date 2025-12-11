@@ -52,6 +52,28 @@ FL.nest.counts <- read_csv("data/FL_Sept2020.csv",
                                                        ifelse(latitude < 31, 30)))))),
          beach_f = as.factor(toupper(beach)))
 
+FL.nest.counts %>% 
+  group_by(ID2) %>%
+  summarise(n = n()) -> FL.ns
+
+FL.nest.counts %>% 
+  select(ID2, ID, latitude, beach_f, year) %>% 
+  group_by(ID) %>%
+  summarise(ID2 = first(ID2),
+            name = first(beach_f),
+            latitude = first(latitude),
+            median.yr = median(year),
+            min.yr = min(year),
+            n = n()) %>%
+  mutate(latc = latitude - mean(latitude),
+         latc2 = latc^2,
+         beach = ID,
+         ID2 = ID2,
+         name = name) -> FL.lat.dat
+
+median.yr.FL <- select(FL.lat.dat, c(ID, median.yr, min.yr)) %>%
+  right_join(FL.nest.counts, by = "ID") %>% 
+  select(ID, median.yr, min.yr, year)
 
 # parameters to monitor
 # These are for the original model by Michelle Sims
@@ -66,6 +88,13 @@ parameters.to.monitor.FL <- c("a0", "a1", "beta", "B.hat", "a1pc",
                              "Devobs", "Devpred", "loglik")
 
 # DAta for FL
+jags.data.FL <- list(N = length(FL.nest.counts$nests),
+                     nbeach = length(unique(FL.nest.counts$ID2)),
+                     count = FL.nest.counts$nests,
+                     beach = FL.nest.counts$ID2,
+                     yearc = median.yr.FL$year - median.yr.FL$min.yr,
+                     latc = FL.lat.dat$latc,
+                     latc2 = FL.lat.dat$latc2)
 
 
 # Define covariates for FL
@@ -128,7 +157,7 @@ for (k in 1:length(out.names.FL)){
                           out.names[k], "_FL.rds"))){
     
     tic <- Sys.time()
-    jm <- jags(data = FL.jags.data,
+    jm <- jags(data = jags.data.FL,
                #inits = inits,
                parameters.to.save= parameters.to.monitor.FL,
                model.file = MCMC.params$model.file,
