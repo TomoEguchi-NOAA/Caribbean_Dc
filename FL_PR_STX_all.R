@@ -100,27 +100,8 @@ parameters.to.monitor.1 <- c("a0", "a1", "beta", "B.hat", "a1pc",
                              "floridapc", "probP", "deviance",
                              "Devobs", "Devpred", "loglik")
 
-model.names <- c("3Covs", rep("2Covs", times = 3), 
-                 rep("1Cov", times = 3), "0Cov")
-
-out.names <- c("3Covs", "logD_DayWk", "logD_DayYr", "DayWk_DayYr",
-               "logD", "DayWk", "DayYr", "0Cov") 
-
-model.file.names.1.Pois <- model.file.names.1.NB <- list()
-model.list.1 <- list()
-c <- 1
-for (k in 1:length(out.names)){
-  model.list.FL[[c]] <- c(ID = c, 
-                         file.name = paste0("Model_JAGS_rSlope_rInt_",
-                                            model.names[k], ".txt"))
-  c <- c + 1
-  model.list.FL[[c]] <- c(ID = c, 
-                         file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
-                                            model.names[k], ".txt"))
-  c <- c + 1  
-}
-
 # Define covariates for FL
+Cov.FL <- c("distance", "days_week", "days_year")
 X.FL <- list(cbind(log(FL.nest.counts$distance) -
                      median(log(FL.nest.counts$distance)),
                    FL.nest.counts$days_week -
@@ -147,11 +128,47 @@ X.FL <- list(cbind(log(FL.nest.counts$distance) -
                median(FL.nest.counts$days_year),
              0)
 
-model.names.STX <- c("1Cov", "0Cov")
-out.names.STX <- c("DayYr", "0Cov") 
+model.names.FL <- c("3Covs", rep("2Covs", times = 3), 
+                 rep("1Cov", times = 3), "0Cov")
+
+out.names.FL <- c("3Covs", "logD_DayWk", "logD_DayYr", "DayWk_DayYr",
+               "logD", "DayWk", "DayYr", "0Cov") 
+
+model.list.FL <- list()
+c <- 1
+for (k in 1:length(out.names)){
+  model.list.FL[[c]] <- c(ID = c, 
+                         file.name = paste0("Model_JAGS_rSlope_rInt_",
+                                            model.names.FL[k], ".txt"))
+  c <- c + 1
+  model.list.FL[[c]] <- c(ID = c, 
+                         file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+                                            model.names.FL[k], ".txt"))
+  c <- c + 1  
+}
+
+
+# Covarates for STX
+Cov.STX <- c("days_year")
 X.STX <- list(STX.nest.counts$days_year -
                 median(STX.nest.counts$days_year),
               0)
+
+model.names.STX <- c("1Cov", "0Cov")
+out.names.STX <- c("DayYr", "0Cov") 
+
+model.list.STX <- list()
+c <- 1
+for (k in 1:length(out.names)){
+  model.list.STX[[c]] <- c(ID = c, 
+                          file.name = paste0("Model_JAGS_rSlope_rInt_",
+                                             model.names.STX[k], ".txt"))
+  c <- c + 1
+  model.list.STX[[c]] <- c(ID = c, 
+                          file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+                                             model.names.STX[k], ".txt"))
+  c <- c + 1  
+}
 
 
 # These are for my new models:
