@@ -1,5 +1,72 @@
 library(loo)
 
+run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.params, Rhat.params){
+  
+  loo.out <- list()
+  Rmax <- list() #vector(mode = "numeric", length = length(out.names))
+  
+  
+  for (k in 1:length(model.list)){
+    file.name.root <- unlist(str_split(unlist(str_split(model.list[[k]]$file.name, ".txt"))[1],
+                                       pattern = "Model_JAGS_"))[2]
+    
+    MCMC.params$model.file = paste0("models/", model.list[[k]]$file.name)
+    jags.data$X <- model.list[[k]]$Cov
+    
+    if (!file.exists(paste0("RData/", model.list[[k]]$out.file.name))){
+      
+      tic <- Sys.time()
+      jm <- jags(data = jags.data,
+                 #inits = inits,
+                 parameters.to.save= params.to.monitor,
+                 model.file = MCMC.params$model.file,
+                 n.chains = MCMC.params$n.chains,
+                 n.burnin = MCMC.params$n.burnin,
+                 n.thin = MCMC.params$n.thin,
+                 n.iter = MCMC.params$n.samples,
+                 DIC = T, 
+                 parallel=T)
+      
+      toc <- Sys.time()
+      
+      out.list <- list(jags.out = jm,
+                       jags.data = jags.data,
+                       Run.Date = tic,
+                       Run.Time = toc - tic,
+                       MCMC.params = MCMC.params)
+      
+      saveRDS(out.list, 
+              file = paste0("RData/", model.list.FL[[k]]$out.file.name))
+      
+    } else {
+      out.list <- readRDS(file = paste0("RData/", model.list.FL[[k]]$out.file.name))
+    }
+    
+    Rmax[[k]] <- rank.normalized.R.hat(out.list$jags.out$samples, 
+                                       params = Rhat.params, 
+                                       MCMC.params = MCMC.params)
+    
+    loglik.mat <- out.list$jags.out$sims.list$loglik
+    
+    n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+    Reff <- relative_eff(exp(loglik.mat),
+                         chain_id = rep(1:MCMC.params$n.chains,
+                                        each = n.per.chain),
+                         cores = MCMC.params$n.chains)
+    
+    loo.out <- rstanarm::loo(loglik.mat, 
+                             r_eff = Reff, 
+                             cores = MCMC.params$n.chains, 
+                             k_threshold = 0.7)
+    
+    loo.out[[k]] <- list(Reff = Reff,
+                         loo.out = loo.out)
+    
+  }
+  
+  return(list(Rmax = Rmax,
+              loo.out = loo.out))
+}
 
 compute.LOOIC <- function(loglik.array, MCMC.params){
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin

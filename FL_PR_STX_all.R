@@ -27,9 +27,7 @@ MCMC.params <- list(n.samples = 50000,
                     n.thin = 5,
                     n.chains = 5)
 
-n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
-
-# Get data 
+# Define data columns 
 col.def <- cols(ID = col_integer(),
                 year = col_integer(),
                 beach = col_character(),
@@ -38,6 +36,8 @@ col.def <- cols(ID = col_integer(),
                 days_week = col_integer(),
                 days_year = col_integer(),
                 nests = col_integer())
+
+################################ FL #######################################
 
 FL.nest.counts <- read_csv("data/FL_Sept2020.csv", 
                            col_types = col.def) %>% 
@@ -79,15 +79,15 @@ median.yr.FL <- select(FL.lat.dat, c(ID, median.yr, min.yr)) %>%
 # These are for the original model by Michelle Sims
 # Each area was ran separately with area-specific covariates
 parameters.to.monitor.FL <- c("a0", "a1", "beta", "B.hat", "a1pc",
-                             "mu.a0", "mu.a1",
+                             "mu.a0", "m.a1",
                              "rea0", "rea1",
                              "delta1", "delta2",
-                             "sigma.e", "Sigma.B",
-                             "sigma.a0", "sigma.a1",
+                             "sigma.e", 
+                             "sigma.a0", "sigma.a1", "rho",
                              "floridapc", "probP", "deviance",
                              "Devobs", "Devpred", "loglik")
 
-# DAta for FL
+# Data for FL
 jags.data.FL <- list(N = length(FL.nest.counts$nests),
                      nbeach = length(unique(FL.nest.counts$ID2)),
                      count = FL.nest.counts$nests,
@@ -134,67 +134,33 @@ out.names.FL <- c("3Covs", "logD_DayWk", "logD_DayYr", "DayWk_DayYr",
 model.list.FL <- list()
 c <- 1
 for (k in 1:length(out.names.FL)){
-  model.list.FL[[c]] <- c(ID = c, 
-                         file.name = paste0("Model_JAGS_rSlope_rInt_",
-                                            model.names.FL[k], ".txt"))
+  model.list.FL[[c]] <- list(ID = c, 
+                             file.name = paste0("Model_JAGS_Pois_rSlope_rInt_",
+                                                model.names.FL[k], ".txt"),
+                             Cov = X.FL[[k]],
+                             out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
+                                                    out.names.FL[k], ".rds"))
   c <- c + 1
-  model.list.FL[[c]] <- c(ID = c, 
-                         file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
-                                            model.names.FL[k], ".txt"))
-  c <- c + 1  
+  # model.list.FL[[c]] <- list(ID = c, 
+  #                            file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+  #                                               model.names.FL[k], ".txt"),
+  #                            Cov = X.FL[[k]],
+  #                            out.file.name = paste0("JAGS_out_negbin_rSlope_rInt_",
+  #                                                   out.names.FL[k], ".rds"))
+  # c <- c + 1  
 }
+
+Rhat.params.FL <- "^a0\\[|^a1\\[|^beta\\[|^mu.a0|^m.a1|^delta1|^delta2|^sigma."
 
 # Run all models for FL
-loo.out.FL <- list()
-Rmax.FL <- list() #vector(mode = "numeric", length = length(out.names))
-
-for (k in 1:length(out.names.FL)){
-  MCMC.params$model.file = paste0("models/Model_JAGS_rSlope_rInt_",
-                                  model.names.FL[k], ".txt")
-  FL.jags.data$X <- X.FL[[k]]
-  
-  if (!file.exists(paste0("RData/JAGS_out_rSlope_rInt_", 
-                          out.names[k], "_FL.rds"))){
-    
-    tic <- Sys.time()
-    jm <- jags(data = jags.data.FL,
-               #inits = inits,
-               parameters.to.save= parameters.to.monitor.FL,
-               model.file = MCMC.params$model.file,
-               n.chains = MCMC.params$n.chains,
-               n.burnin = MCMC.params$n.burnin,
-               n.thin = MCMC.params$n.thin,
-               n.iter = MCMC.params$n.samples,
-               DIC = T, 
-               parallel=T)
-    
-    toc <- Sys.time()
-    
-    out.list <- list(jags.out = jm,
-                     jags.data = FL.jags.data,
-                     Run.Date = tic,
-                     Run.Time = toc - tic,
-                     MCMC.params = MCMC.params)
-                     
-    saveRDS(out.list, 
-            file = paste0("RData/JAGS_out_rSlope_rInt_", 
-                          out.names[k], "_FL.rds"))
-    
-  } else {
-    out.list <- readRDS(file = paste0("RData/JAGS_out_rSlope_rInt_",
-                                out.names[k], "_FL.rds"))
-  }
-  
-  Rmax.FL[[k]] <- rank.normalized.R.hat(out.list$jags.out$samples, 
-                                        params = params.to.monitor.1, 
-                                        MCMC.params = MCMC.params)
-  
-  loo.out.FL[[k]] <- compute.LOOIC(loglik.array = jm$sims.list$loglik, 
-                                   MCMC.params = MCMC.params)
-  
-}
+out.FL <- run.all.models.1(model.list = model.list.FL,
+                           jags.data = jags.data.FL,
+                           params.to.monitor = parameters.to.monitor.FL,
+                           MCMC.params = MCMC.params,
+                           Rhat.params = Rhat.params.FL)
 
 
+################################ STX #######################################
 # Covarates for STX
 Cov.STX <- c("days_year")
 X.STX <- list(STX.nest.counts$days_year -
@@ -207,54 +173,60 @@ out.names.STX <- c("DayYr", "0Cov")
 model.list.STX <- list()
 c <- 1
 for (k in 1:length(out.names)){
-  model.list.STX[[c]] <- c(ID = c, 
-                          file.name = paste0("Model_JAGS_rSlope_rInt_",
-                                             model.names.STX[k], ".txt"))
+  model.list.STX[[c]] <- list(ID = c, 
+                              file.name = paste0("Model_JAGS_Pois_rSlope_rInt_",
+                                                 model.names.STX[k], ".txt"),
+                              Cov = X.STX[[k]])
   c <- c + 1
-  model.list.STX[[c]] <- c(ID = c, 
-                          file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
-                                             model.names.STX[k], ".txt"))
-  c <- c + 1  
+  # model.list.STX[[c]] <- list(ID = c, 
+  #                             file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+  #                                            model.names.STX[k], ".txt"),
+  #                             Cov = X.STX[[k]])
+  # c <- c + 1  
 }
 
+STX.nest.counts <- read_csv("data/STX_Sept2020.csv", 
+                            col_types = col.def) %>% 
+  mutate(beach_f = as.factor(toupper(beach)),
+         dataset = "STX",
+         ID2 = as.numeric(as.factor(ID)))
 
-nest.counts <- read_csv("data/FL_PR_STX.csv", 
-                        col_types = col.def) %>% 
-  mutate(lat_band = ifelse(latitude < 26, 25,
-                           ifelse(latitude < 27, 26,
-                                  ifelse(latitude < 28, 27,
-                                         ifelse(latitude < 29, 28,
-                                                ifelse(latitude < 30, 29,
-                                                       ifelse(latitude < 31, 30)))))),
-         beach_f = as.factor(toupper(beach)))
+STX.nest.counts %>% 
+  group_by(ID2) %>%
+  summarise(n = n()) -> STX.ns
 
-# There are some skipped years, which needs to be filled in
-nest.counts %>% 
+STX.nest.counts %>% 
+  select(ID2, ID, beach_f, year) %>% 
   group_by(ID) %>%
-  summarise(n.years = max(year) - min(year) + 1,
-            year.1 = min(year),
-            year.2 = max(year),
-            lat = first(latitude)) -> summary.years
+  summarise(ID2 = first(ID2),
+            name = first(beach_f),
+            median.yr = median(year),
+            min.yr = min(year),
+            n = n()) %>%
+  mutate(beach = ID,
+         ID2 = ID2,
+         name = name) -> STX.lat.dat
 
-year.mat <- y <- matrix(nrow = nrow(summary.years), 
-                        ncol = max(summary.years$n.years))
+median.yr <- select(STX.lat.dat, 
+                    c(ID, median.yr, min.yr)) %>%
+  right_join(STX.nest.counts, by = "ID") %>% 
+  select(ID, median.yr, min.yr, year)
 
-# find which data points are missing.
-NA.idx <- vector(mode = "list", length = nrow(summary.years))
+STX.jags.data <- list(N = length(STX.nest.counts$nests),
+                      nbeach = length(unique(STX.nest.counts$ID2)),
+                      count = STX.nest.counts$nests,
+                      beach = STX.nest.counts$ID2,
+                      yearc = median.yr$year - median.yr$min.yr)
 
-k <- 3
-for (k in 1:nrow(summary.years)){
-  nest.counts %>% 
-    filter(ID == summary.years$ID[k]) %>%
-    select(year, nests) %>% 
-    mutate(seq.yr = year - min(year) + 1) -> tmp
-  
-  y[k,tmp$seq.yr] <- tmp$nests
-  year.mat[k, tmp$seq.yr] <- tmp$year
-  n.years.k <- summary.years$n.years[k]
-  if (sum(is.na(year.mat[k, 1:n.years.k])) > 0)
-    NA.idx[[k]] <- c(1:n.years.k)[is.na(year.mat[k, 1:n.years.k])]
-}
+data.vector <- STX.jags.data$count %>% 
+  rep(each = MCMC.params$n.chains * n.per.chain)
+
+parameters <- c("a0", "a1", "beta", 
+                "sigma.e", "deviance",
+                "Devobs", "Devpred", "loglik")
+
+
+
 
 # Create a vector of variable names for missing years
 missing.y <- c()
