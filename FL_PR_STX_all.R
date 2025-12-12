@@ -89,8 +89,7 @@ parameters.to.monitor.FL <- c("a0", "a1", "beta", "B.hat", "a1pc",
                              "delta1", "delta2",
                              "sigma.e", 
                              "sigma.a0", "sigma.a1", "rho",
-                             "floridapc", "probP", "deviance",
-                             "Devobs", "Devpred", "loglik")
+                             "loglik")
 
 # Data for FL
 jags.data.FL <- list(N = length(FL.nest.counts$nests),
@@ -157,14 +156,70 @@ for (k in 1:length(out.names.FL)){
   # c <- c + 1  
 }
 
-#Rhat.params.FL <- "^a0\\[|^a1\\[|^beta\\[|^mu.a0|^m.a1|^delta1|^delta2|^sigma."
+Rhat.params.FL <- "^a0\\[|^a1\\[|^beta\\[|^mu.a0|^m.a1|^delta1|^delta2|^sigma."
 
 # Run all models for FL
 out.FL <- run.all.models.1(model.list = model.list.FL,
                            jags.data = jags.data.FL,
                            params.to.monitor = parameters.to.monitor.FL,
                            MCMC.params = MCMC.params,
-                           Rhat.params = Rhat.params)
+                           Rhat.params = Rhat.params.FL)
+
+###################################### FL-2 #################################
+
+# Also try running two-slope models:
+model.list.FL <- list()
+c <- 1
+for (k in 1:length(out.names.FL)){
+  model.list.FL[[c]] <- list(ID = c, 
+                             file.name = paste0("Model_JAGS_Pois_r2Slopes_rInt_",
+                                                model.names.FL[k], ".txt"),
+                             Cov = X.FL[[k]],
+                             out.file.name = paste0("JAGS_out_Pois_r2Slopes_rInt_",
+                                                    out.names.FL[k], "_FL.rds"))
+  c <- c + 1
+  # model.list.FL[[c]] <- list(ID = c, 
+  #                            file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+  #                                               model.names.FL[k], ".txt"),
+  #                            Cov = X.FL[[k]],
+  #                            out.file.name = paste0("JAGS_out_negbin_rSlope_rInt_",
+  #                                                   out.names.FL[k], "_FL.rds"))
+  # c <- c + 1  
+}
+
+parameters.to.monitor.FL <- c("a0.1", "a0.2",
+                              "a1.1", "a1.2",
+                              "beta", "B.hat", 
+                              "mu.a0.1", "m.a1.1",
+                              "mu.a0.2", "m.a1.2",
+                              "rho.1", "rho.2",
+                              "delta1", "delta2",
+                              "sigma.e", 
+                              "sigma.a0.1", "sigma.a1.1",
+                              "sigma.a0.2", "sigma.a1.2",
+                              "year.change",
+                              "loglik")
+
+Rhat.params.FL <- "^a0.1\\[|^a0.2\\[|^a1.1\\[^a1.2\\[|^beta\\[|^mu.a0|^m.a1|^delta1|^delta2|^sigma.|^rho.|year.change"
+
+# Data for FL
+jags.data.FL <- list(N = length(FL.nest.counts$nests),
+                     nbeach = length(unique(FL.nest.counts$ID2)),
+                     count = FL.nest.counts$nests,
+                     beach = FL.nest.counts$ID2,
+                     yearc = median.yr.FL$year - median.yr.FL$min.yr,
+                     latc = FL.lat.dat$latc,
+                     latc2 = FL.lat.dat$latc2,
+                     minT = 23, maxT = 33)
+
+# Run all models for FL
+out.FL.2 <- run.all.models.1(model.list = model.list.FL,
+                           jags.data = jags.data.FL,
+                           params.to.monitor = parameters.to.monitor.FL,
+                           MCMC.params = MCMC.params,
+                           Rhat.params = Rhat.params.FL)
+
+
 
 
 ################################ STX #######################################
@@ -235,7 +290,7 @@ parameters.to.monitor.STX <- c("a0", "a1", "a2", "beta",
 
 Rhat.params.STX <- "^a0|^a1|^a2|^epsilon|^sigma."
 
-# Run all models for FL
+# Run all models for STX
 out.STX <- run.all.models.1(model.list = model.list.STX,
                            jags.data = jags.data.STX,
                            params.to.monitor = parameters.to.monitor.STX,
@@ -315,7 +370,7 @@ Rhat.params.PR <- "^a0|^a1|^a2|^epsilon|^sigma."
 # MCMC.params$model.file <- "models/Model_JAGS_Pois_rSlope_rInt_0Cov.txt"
 # out.file.name <- "RData/JAGS_out_Pois_rSlope_rInt_0Cov_PR.rds"
 
-# Run all models for FL
+# Run all models for PR
 out.PR <- run.all.models.1(model.list = model.list.PR,
                             jags.data = jags.data.PR,
                             params.to.monitor = parameters.to.monitor.PR,
