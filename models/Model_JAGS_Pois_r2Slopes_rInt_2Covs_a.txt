@@ -1,0 +1,101 @@
+# Original model by Michelle Sims:
+# Model 2: Model with random effects for slope and intercept and latitude quadratic plus 
+# overdispersion - this time I did log distance
+# adjusted model  - now computes residuals and computes bayesian p-value using deviance
+
+# converted to run in JAGS - TE
+# Random effects for slope and intercept and takes 2 covariates. 
+
+# 2020-03-10
+# 2021-12-01 Converted to 2 slope model
+# 2022-02-02 Added separate beta parameters for after year.change
+
+model{
+	for(i in 1:N){
+		count[i] ~ dpois(mu[i])
+		resid[i] <- count[i] - mu[i]  # computes residuals
+		log(mu[i]) <- ifelse(yearc[i] < year.change,
+		                    a0.1[beach[i]] + a1.1[beach[i]] * yearc[i] + beta[1,1] * X[i,1] + beta[1,2] * X[i,2] + epsilon[i],
+		                    a0.2[beach[i]] + a1.2[beach[i]] * yearc[i] + beta[2,1] * X[i,1] + beta[2,2] * X[i,2] + epsilon[i])
+
+		# overdispersion part - if sigma.e >> 0, then overdispersed according to the publication
+		epsilon[i] ~ dnorm(0, tau.e)    
+
+		loglik[i] <- logdensity.pois(count[i], mu[i])
+
+	}
+
+	for(j in 1:nbeach){
+		a0.1[j] <- B.1[j,1]
+		a1.1[j] <- B.1[j,2]
+		B.1[j,1:2] ~ dmnorm(B.1.hat[j,], Tau.B.1[,])
+		
+		B.1.hat[j,1] <- mu.a0.1
+		B.1.hat[j,2] <- mu.a1.1[j]  # 2nd order polynomial fit
+		
+		mu.a1.1[j] <- m.a1.1 + delta1 * latc[j] + delta2 * latc2[j]
+		
+		a0.1pc[j] <- exp(a0.1[j])
+		a1.1pc[j] <- (exp(a1.1[j])-1) * 100
+		rea0.1[j] <- a0.1[j] - mu.a0.1
+		rea1.1[j] <- a1.1[j] - mu.a1.1[j]
+
+		a0.2[j] <- B.2[j,1]
+		a1.2[j] <- B.2[j,2]
+		B.2[j,1:2] ~ dmnorm(B.2.hat[j,], Tau.B.2[,])
+		
+		B.2.hat[j,1] <- mu.a0.2
+		B.2.hat[j,2] <- mu.a1.2[j]  # 2nd order polynomial fit
+		
+		mu.a1.2[j] <- m.a1.2 + delta1 * latc[j] + delta2 * latc2[j]
+		
+		a0.2pc[j] <- exp(a0.2[j])
+		a1.2pc[j] <- (exp(a1.2[j])-1) * 100
+		rea0.2[j] <- a0.2[j] - mu.a0.2
+		rea1.2[j] <- a1.2[j] - mu.a1.2[j]
+
+	}
+
+	for(k in 1:2){
+		for (j in 1:2){
+			beta[j,k] ~ dnorm(0, 0.01)
+		}
+	}
+
+	delta1 ~ dnorm(0, 0.01)
+	delta2 ~ dnorm(0, 0.01)
+	
+	m.a1.1 ~ dnorm(0, 0.01)
+	mu.a0.1 ~ dnorm(0, 0.01)
+	
+	m.a1.2 ~ dnorm(0, 0.01)
+	mu.a0.2 ~ dnorm(0, 0.01)
+
+	Tau.B.1[1:2,1:2] <- inverse(Sigma.B.1[,])
+	Tau.B.2[1:2,1:2] <- inverse(Sigma.B.2[,])
+	
+	Sigma.B.1[1,1] <- pow(sigma.a0.1, 2)
+ 	Sigma.B.1[2,2] <- pow(sigma.a1.1, 2)
+	Sigma.B.1[1,2] <- rho.1 * sigma.a0.1 * sigma.a1.1
+	Sigma.B.1[2,1] <- rho.1 * sigma.a0.1 * sigma.a1.1
+	
+	Sigma.B.2[1,1] <- pow(sigma.a0.2, 2)
+ 	Sigma.B.2[2,2] <- pow(sigma.a1.2, 2)
+	Sigma.B.2[1,2] <- rho.2 * sigma.a0.2 * sigma.a1.2
+	Sigma.B.2[2,1] <- rho.2 * sigma.a0.2 * sigma.a1.2
+
+	sigma.a0.1 ~ dgamma(2, 0.5) #dunif(0, 100)
+	sigma.a1.1 ~ dgamma(2, 0.5) #dunif(0, 100)
+	
+	sigma.a0.2 ~ dgamma(2, 0.5) #dunif(0, 100)
+	sigma.a1.2 ~ dgamma(2, 0.5) #dunif(0, 100)
+	
+	rho.1 ~ dunif(-1, 1)
+	rho.2 ~ dunif(-1, 1)
+
+	tau.e <- pow(sigma.e, -2)
+	sigma.e ~ dgamma(2, 0.5) #dunif(0, 100)
+
+	#year.change ~ dpois(minT + (maxT-minT)/2)
+  year.change ~ dunif(minT, maxT)
+}

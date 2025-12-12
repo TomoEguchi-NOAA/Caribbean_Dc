@@ -1,4 +1,5 @@
 library(loo)
+library(posterior)
 
 run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.params, Rhat.params){
   
@@ -36,10 +37,10 @@ run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.para
                        MCMC.params = MCMC.params)
       
       saveRDS(out.list, 
-              file = paste0("RData/", model.list.FL[[k]]$out.file.name))
+              file = paste0("RData/", model.list[[k]]$out.file.name))
       
     } else {
-      out.list <- readRDS(file = paste0("RData/", model.list.FL[[k]]$out.file.name))
+      out.list <- readRDS(file = paste0("RData/", model.list[[k]]$out.file.name))
     }
     
     Rmax[[k]] <- rank.normalized.R.hat(out.list$jags.out$samples, 
@@ -54,14 +55,12 @@ run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.para
                                         each = n.per.chain),
                          cores = MCMC.params$n.chains)
     
-    loo.out <- rstanarm::loo(loglik.mat, 
-                             r_eff = Reff, 
-                             cores = MCMC.params$n.chains, 
-                             k_threshold = 0.7)
+    loo.out[[k]] <- rstanarm::loo(loglik.mat, 
+                                  r_eff = Reff, 
+                                  cores = MCMC.params$n.chains, 
+                                  k_threshold = 0.7)
     
-    loo.out[[k]] <- list(Reff = Reff,
-                         loo.out = loo.out)
-    
+
   }
   
   return(list(Rmax = Rmax,

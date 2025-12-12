@@ -37,6 +37,11 @@ col.def <- cols(ID = col_integer(),
                 days_year = col_integer(),
                 nests = col_integer())
 
+## Running models by Michelle Sims. Using each beach separately ##
+
+# Parameters to monitor for convergence:
+Rhat.params <- "^a0\\[|^a1\\[|^beta\\[|^mu.a0|^m.a1|^delta1|^delta2|^sigma."
+
 ################################ FL #######################################
 
 FL.nest.counts <- read_csv("data/FL_Sept2020.csv", 
@@ -125,11 +130,13 @@ X.FL <- list(cbind(log(FL.nest.counts$distance) -
                median(FL.nest.counts$days_year),
              0)
 
-model.names.FL <- c("3Covs", rep("2Covs", times = 3), 
-                 rep("1Cov", times = 3), "0Cov")
+model.names.FL <- c("3Covs", 
+                    rep("2Covs", times = 3), 
+                    rep("1Cov", times = 3), 
+                    "0Cov")
 
 out.names.FL <- c("3Covs", "logD_DayWk", "logD_DayYr", "DayWk_DayYr",
-               "logD", "DayWk", "DayYr", "0Cov") 
+                  "logD", "DayWk", "DayYr", "0Cov") 
 
 model.list.FL <- list()
 c <- 1
@@ -139,52 +146,29 @@ for (k in 1:length(out.names.FL)){
                                                 model.names.FL[k], ".txt"),
                              Cov = X.FL[[k]],
                              out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
-                                                    out.names.FL[k], ".rds"))
+                                                    out.names.FL[k], "_FL.rds"))
   c <- c + 1
   # model.list.FL[[c]] <- list(ID = c, 
   #                            file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
   #                                               model.names.FL[k], ".txt"),
   #                            Cov = X.FL[[k]],
   #                            out.file.name = paste0("JAGS_out_negbin_rSlope_rInt_",
-  #                                                   out.names.FL[k], ".rds"))
+  #                                                   out.names.FL[k], "_FL.rds"))
   # c <- c + 1  
 }
 
-Rhat.params.FL <- "^a0\\[|^a1\\[|^beta\\[|^mu.a0|^m.a1|^delta1|^delta2|^sigma."
+#Rhat.params.FL <- "^a0\\[|^a1\\[|^beta\\[|^mu.a0|^m.a1|^delta1|^delta2|^sigma."
 
 # Run all models for FL
 out.FL <- run.all.models.1(model.list = model.list.FL,
                            jags.data = jags.data.FL,
                            params.to.monitor = parameters.to.monitor.FL,
                            MCMC.params = MCMC.params,
-                           Rhat.params = Rhat.params.FL)
+                           Rhat.params = Rhat.params)
 
 
 ################################ STX #######################################
-# Covarates for STX
-Cov.STX <- c("days_year")
-X.STX <- list(STX.nest.counts$days_year -
-                median(STX.nest.counts$days_year),
-              0)
-
-model.names.STX <- c("1Cov", "0Cov")
-out.names.STX <- c("DayYr", "0Cov") 
-
-model.list.STX <- list()
-c <- 1
-for (k in 1:length(out.names)){
-  model.list.STX[[c]] <- list(ID = c, 
-                              file.name = paste0("Model_JAGS_Pois_rSlope_rInt_",
-                                                 model.names.STX[k], ".txt"),
-                              Cov = X.STX[[k]])
-  c <- c + 1
-  # model.list.STX[[c]] <- list(ID = c, 
-  #                             file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
-  #                                            model.names.STX[k], ".txt"),
-  #                             Cov = X.STX[[k]])
-  # c <- c + 1  
-}
-
+# Data - only one beach
 STX.nest.counts <- read_csv("data/STX_Sept2020.csv", 
                             col_types = col.def) %>% 
   mutate(beach_f = as.factor(toupper(beach)),
@@ -205,28 +189,140 @@ STX.nest.counts %>%
             n = n()) %>%
   mutate(beach = ID,
          ID2 = ID2,
-         name = name) -> STX.lat.dat
+         name = name) -> STX.dat
 
-median.yr <- select(STX.lat.dat, 
-                    c(ID, median.yr, min.yr)) %>%
+STX.dat %>%
+  select(c(ID, median.yr, min.yr)) %>%
   right_join(STX.nest.counts, by = "ID") %>% 
-  select(ID, median.yr, min.yr, year)
+  select(ID, median.yr, min.yr, year) -> median.yr.STX 
 
-STX.jags.data <- list(N = length(STX.nest.counts$nests),
+jags.data.STX <- list(N = length(STX.nest.counts$nests),
                       nbeach = length(unique(STX.nest.counts$ID2)),
                       count = STX.nest.counts$nests,
                       beach = STX.nest.counts$ID2,
-                      yearc = median.yr$year - median.yr$min.yr)
+                      yearc = median.yr.STX$year - median.yr.STX$min.yr)
 
-data.vector <- STX.jags.data$count %>% 
-  rep(each = MCMC.params$n.chains * n.per.chain)
+# Covarates for STX
+Cov.STX <- c("days_year")
+X.STX <- list(STX.nest.counts$days_year -
+                median(STX.nest.counts$days_year),
+              0)
 
-parameters <- c("a0", "a1", "beta", 
-                "sigma.e", "deviance",
-                "Devobs", "Devpred", "loglik")
+model.names.STX <- c("1Cov_NoLat", "0Cov_NoLat")
+out.names.STX <- c("DayYr", "0Cov") 
+
+model.list.STX <- list()
+c <- 1
+for (k in 1:length(out.names.STX)){
+  model.list.STX[[c]] <- list(ID = c, 
+                              file.name = paste0("Model_JAGS_Pois_rSlope_rInt_",
+                                                 model.names.STX[k], ".txt"),
+                              Cov = X.STX[[k]],
+                              out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
+                                                     out.names.FL[k], "_STX.rds"))
+  c <- c + 1
+  # model.list.STX[[c]] <- list(ID = c, 
+  #                             file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+  #                                            model.names.STX[k], ".txt"),
+  #                             Cov = X.STX[[k]])
+  # c <- c + 1  
+}
+
+parameters.to.monitor.STX <- c("a0", "a1", "a2", "beta", 
+                               "sigma.e",
+                               "epsilon",
+                               "loglik")
+
+Rhat.params.STX <- "^a0|^a1|^a2|^epsilon|^sigma."
+
+# Run all models for FL
+out.STX <- run.all.models.1(model.list = model.list.STX,
+                           jags.data = jags.data.STX,
+                           params.to.monitor = parameters.to.monitor.STX,
+                           MCMC.params = MCMC.params,
+                           Rhat.params = Rhat.params.STX)
 
 
+################################ PR #######################################
+# For PR, no covariates were used for now
+PR.nest.counts <- read_csv("data/PR_Sept2020.csv", 
+                            col_types = col.def) %>% 
+  mutate(beach_f = as.factor(toupper(beach)),
+         dataset = "PR",
+         ID2 = as.numeric(as.factor(ID)))
 
+PR.nest.counts %>% 
+  group_by(ID2) %>%
+  summarise(n = n()) -> PR.ns
+
+PR.nest.counts %>% 
+  select(ID2, ID, beach_f, year) %>% 
+  group_by(ID) %>%
+  summarise(ID2 = first(ID2),
+            name = first(beach_f),
+            median.yr = median(year),
+            min.yr = min(year),
+            n = n()) %>%
+  mutate(beach = ID,
+         ID2 = ID2,
+         name = name) -> PR.lat.dat
+
+PR.lat.dat %>%
+  select(c(ID, median.yr, min.yr)) %>%
+  right_join(PR.nest.counts, by = "ID") %>% 
+  select(ID, median.yr, min.yr, year) -> median.yr.PR 
+
+jags.data.PR <- list(N = length(PR.nest.counts$nests),
+                     nbeach = length(unique(PR.nest.counts$ID2)),
+                     count = PR.nest.counts$nests,
+                     beach = PR.nest.counts$ID2,
+                     yearc = median.yr.PR$year - median.yr.PR$min.yr)
+
+Cov.PR <- c("days_year")
+X.PR <- list(PR.nest.counts$days_year -
+               median(PR.nest.counts$days_year),
+             0)
+
+model.names.PR <- c("1Cov_NoLat", "0Cov_NoLat")
+out.names.PR <- c("DayYr", "0Cov") 
+
+model.list.PR <- list()
+c <- 1
+for (k in 1:length(out.names.PR)){
+  model.list.PR[[c]] <- list(ID = c, 
+                             file.name = paste0("Model_JAGS_Pois_rSlope_rInt_",
+                                                 model.names.PR[k], ".txt"),
+                              Cov = X.PR[[k]],
+                              out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
+                                                     out.names.PR[k], "_PR.rds"))
+  c <- c + 1
+  # model.list.PR[[c]] <- list(ID = c, 
+  #                             file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+  #                                            model.names.PR[k], ".txt"),
+  #                             Cov = NULL,
+  #                             out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
+  #                                                    out.names.PR[k], "_PR.rds")
+  # c <- c + 1  
+}
+
+parameters.to.monitor.PR <- c("a0", "a1", "a2", "beta", 
+                              "sigma.e",
+                              "epsilon",
+                              "loglik")
+
+Rhat.params.PR <- "^a0|^a1|^a2|^epsilon|^sigma."
+
+# MCMC.params$model.file <- "models/Model_JAGS_Pois_rSlope_rInt_0Cov.txt"
+# out.file.name <- "RData/JAGS_out_Pois_rSlope_rInt_0Cov_PR.rds"
+
+# Run all models for FL
+out.PR <- run.all.models.1(model.list = model.list.PR,
+                            jags.data = jags.data.PR,
+                            params.to.monitor = parameters.to.monitor.PR,
+                            MCMC.params = MCMC.params,
+                            Rhat.params = Rhat.params.PR)
+
+############## A new approach starts here ###################################
 
 # Create a vector of variable names for missing years
 missing.y <- c()
