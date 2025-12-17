@@ -219,9 +219,6 @@ out.FL.2 <- run.all.models.1(model.list = model.list.FL,
                            MCMC.params = MCMC.params,
                            Rhat.params = Rhat.params.FL)
 
-
-
-
 ################################ STX #######################################
 # Data - only one beach
 STX.nest.counts <- read_csv("data/STX_Sept2020.csv", 
@@ -270,11 +267,11 @@ model.list.STX <- list()
 c <- 1
 for (k in 1:length(out.names.STX)){
   model.list.STX[[c]] <- list(ID = c, 
-                              file.name = paste0("Model_JAGS_Pois_rSlope_rInt_",
+                              file.name = paste0("Model_JAGS_Pois_",
                                                  model.names.STX[k], ".txt"),
                               Cov = X.STX[[k]],
-                              out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
-                                                     out.names.FL[k], "_STX.rds"))
+                              out.file.name = paste0("JAGS_out_Pois_",
+                                                     out.names.STX[k], "_STX.rds"))
   c <- c + 1
   # model.list.STX[[c]] <- list(ID = c, 
   #                             file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
@@ -292,10 +289,56 @@ Rhat.params.STX <- "^a0|^a1|^a2|^epsilon|^sigma."
 
 # Run all models for STX
 out.STX <- run.all.models.1(model.list = model.list.STX,
-                           jags.data = jags.data.STX,
-                           params.to.monitor = parameters.to.monitor.STX,
-                           MCMC.params = MCMC.params,
-                           Rhat.params = Rhat.params.STX)
+                            jags.data = jags.data.STX,
+                            params.to.monitor = parameters.to.monitor.STX,
+                            MCMC.params = MCMC.params,
+                            Rhat.params = Rhat.params.STX)
+
+###################################### STX-2 #################################
+
+# Also try running two-slope models:
+model.list.STX <- list()
+c <- 1
+for (k in 1:length(out.names.STX)){
+  model.list.STX[[c]] <- list(ID = c, 
+                             file.name = paste0("Model_JAGS_Pois_2Slopes_",
+                                                model.names.STX[k], ".txt"),
+                             Cov = X.STX[[k]],
+                             out.file.name = paste0("JAGS_out_Pois_2Slopes_",
+                                                    out.names.STX[k], "_STX.rds"))
+  c <- c + 1
+  # model.list.FL[[c]] <- list(ID = c, 
+  #                            file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
+  #                                               model.names.FL[k], ".txt"),
+  #                            Cov = X.FL[[k]],
+  #                            out.file.name = paste0("JAGS_out_negbin_rSlope_rInt_",
+  #                                                   out.names.FL[k], "_FL.rds"))
+  # c <- c + 1  
+}
+
+parameters.to.monitor.STX <- c("a0.1", "a0.2",
+                               "a1.1", "a1.2",
+                               "beta",  
+                               "sigma.e", 
+                               "year.change",
+                               "loglik")
+
+Rhat.params.STX <- "^a0.1|^a0.2|^a1.1^a1.2|^beta|^sigma.|year.change"
+
+# Data for STX
+jags.data.STX <- list(N = length(STX.nest.counts$nests),
+                     nbeach = length(unique(STX.nest.counts$ID2)),
+                     count = STX.nest.counts$nests,
+                     beach = STX.nest.counts$ID2,
+                     yearc = median.yr.STX$year - median.yr.STX$min.yr,
+                     minT = 23, maxT = 33)
+
+# Run all models for STX
+out.STX.2 <- run.all.models.1(model.list = model.list.STX,
+                             jags.data = jags.data.STX,
+                             params.to.monitor = parameters.to.monitor.STX,
+                             MCMC.params = MCMC.params,
+                             Rhat.params = Rhat.params.STX)
 
 
 ################################ PR #######################################
@@ -345,19 +388,12 @@ model.list.PR <- list()
 c <- 1
 for (k in 1:length(out.names.PR)){
   model.list.PR[[c]] <- list(ID = c, 
-                             file.name = paste0("Model_JAGS_Pois_rSlope_rInt_",
+                             file.name = paste0("Model_JAGS_Pois_",
                                                  model.names.PR[k], ".txt"),
                               Cov = X.PR[[k]],
-                              out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
+                              out.file.name = paste0("JAGS_out_Pois_",
                                                      out.names.PR[k], "_PR.rds"))
   c <- c + 1
-  # model.list.PR[[c]] <- list(ID = c, 
-  #                             file.name = paste0("Model_JAGS_negbin_rSlope_rInt_",
-  #                                            model.names.PR[k], ".txt"),
-  #                             Cov = NULL,
-  #                             out.file.name = paste0("JAGS_out_Pois_rSlope_rInt_",
-  #                                                    out.names.PR[k], "_PR.rds")
-  # c <- c + 1  
 }
 
 parameters.to.monitor.PR <- c("a0", "a1", "a2", "beta", 
@@ -367,15 +403,54 @@ parameters.to.monitor.PR <- c("a0", "a1", "a2", "beta",
 
 Rhat.params.PR <- "^a0|^a1|^a2|^epsilon|^sigma."
 
-# MCMC.params$model.file <- "models/Model_JAGS_Pois_rSlope_rInt_0Cov.txt"
-# out.file.name <- "RData/JAGS_out_Pois_rSlope_rInt_0Cov_PR.rds"
-
 # Run all models for PR
 out.PR <- run.all.models.1(model.list = model.list.PR,
                             jags.data = jags.data.PR,
                             params.to.monitor = parameters.to.monitor.PR,
                             MCMC.params = MCMC.params,
                             Rhat.params = Rhat.params.PR)
+
+###################################### PR-2 #################################
+
+# Also try running two-slope models:
+model.list.PR <- list()
+c <- 1
+for (k in 1:length(out.names.PR)){
+  model.list.PR[[c]] <- list(ID = c, 
+                              file.name = paste0("Model_JAGS_Pois_2Slopes_",
+                                                 model.names.PR[k], ".txt"),
+                              Cov = X.PR[[k]],
+                              out.file.name = paste0("JAGS_out_Pois_2Slopes_",
+                                                     out.names.PR[k], "_PR.rds"))
+  c <- c + 1
+}
+
+parameters.to.monitor.PR <- c("a0.1", "a0.2",
+                               "a1.1", "a1.2",
+                               "beta",  
+                               "sigma.e", 
+                               "year.change",
+                               "loglik")
+
+Rhat.params.PR <- "^a0.1|^a0.2|^a1.1^a1.2|^beta|^sigma.|year.change"
+
+# Data for PR
+jags.data.PR <- list(N = length(PR.nest.counts$nests),
+                      nbeach = length(unique(PR.nest.counts$ID2)),
+                      count = PR.nest.counts$nests,
+                      beach = PR.nest.counts$ID2,
+                      yearc = median.yr.PR$year - median.yr.PR$min.yr,
+                      minT = 23, maxT = 33)
+
+# Run all models for PR
+out.PR.2 <- run.all.models.1(model.list = model.list.PR,
+                              jags.data = jags.data.PR,
+                              params.to.monitor = parameters.to.monitor.PR,
+                              MCMC.params = MCMC.params,
+                              Rhat.params = Rhat.params.PR)
+
+
+
 
 ############## A new approach starts here ###################################
 
@@ -385,7 +460,8 @@ missing.y <- c()
 for (k in 1:length(NA.idx)){
   if (length(NA.idx[[k]]) > 0){
     for (k1 in 1:length(NA.idx[[k]])){
-      missing.y <- c(missing.y, paste0("y[", k, ",", NA.idx[[k]][k1], "]"))
+      missing.y <- c(missing.y, 
+                     paste0("y[", k, ",", NA.idx[[k]][k1], "]"))
     }
   }
 }

@@ -3,7 +3,7 @@ library(posterior)
 
 run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.params, Rhat.params){
   
-  loo.out <- list()
+  jags.out <- loo.out <- list()
   Rmax <- list() #vector(mode = "numeric", length = length(out.names))
   
   
@@ -59,12 +59,13 @@ run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.para
                                   r_eff = Reff, 
                                   cores = MCMC.params$n.chains, 
                                   k_threshold = 0.7)
-    
+    jags.out[[k]] <- out.list    
 
   }
   
   return(list(Rmax = Rmax,
-              loo.out = loo.out))
+              loo.out = loo.out,
+              jags.out = jags.out))
 }
 
 compute.LOOIC <- function(loglik.array, MCMC.params){

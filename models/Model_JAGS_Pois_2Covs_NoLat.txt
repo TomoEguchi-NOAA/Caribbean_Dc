@@ -18,22 +18,22 @@ model{
 		epsilon[i] ~ dnorm(0, tau.e)    
 
 		# goodness of fit
-		countpred[i] ~ dpois(mu[i])    # obtain predicted values
+		#countpred[i] ~ dpois(mu[i])    # obtain predicted values
 		
 		# log likelihood of predicted 
-		loglikpre[i] <- countpred[i] * log(mu[i]) - mu[i] + logfact(countpred[i])   
+		#loglikpre[i] <- countpred[i] * log(mu[i]) - mu[i] + logfact(countpred[i])   
 		
 		# log likelihood of observed values
-		loglikobs[i] <- count[i] * log(mu[i]) - mu[i] + logfact(count[i])       
+		#loglikobs[i] <- count[i] * log(mu[i]) - mu[i] + logfact(count[i])       
 
 		loglik[i] <- logdensity.pois(count[i], mu[i])
 
 	}
 
-	Devobs <- -2*sum(loglikobs[1:N])         # deviance of observed value
-	Devpred <- -2*sum(loglikpre[1:N])        # deviance of predicted values
-	DiffDev <- Devpred-Devobs                # difference between deviances#
-	probP <- step(DiffDev)					 #  has value=1 if DiffDev>0, 0 otherwise 
+	#Devobs <- -2*sum(loglikobs[1:N])         # deviance of observed value
+	#Devpred <- -2*sum(loglikpre[1:N])        # deviance of predicted values
+	#DiffDev <- Devpred-Devobs                # difference between deviances#
+	#probP <- step(DiffDev)					 #  has value=1 if DiffDev>0, 0 otherwise 
 
 	for(k in 1:2){
 		beta[k] ~ dnorm(0, 0.01)
