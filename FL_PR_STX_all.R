@@ -54,8 +54,7 @@ FL.nest.counts <- read_csv("data/FL_Sept2020.csv",
                                   ifelse(latitude < 28, 27,
                                          ifelse(latitude < 29, 28,
                                                 ifelse(latitude < 30, 29,
-                                                       ifelse(latitude < 31, 30)))))),
-         beach_f = as.factor(toupper(beach)))
+                                                       ifelse(latitude < 31, 30)))))))
 
 FL.nest.counts %>% 
   group_by(ID2) %>%
