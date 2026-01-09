@@ -48,9 +48,9 @@ model{
         N[j,1] <- pred.N[j,1]
         
         # observation
-        y[j,1] ~  dnorm(N[j,1], tau.R[j])
+        log(y[j,1]) ~  dnorm(N[j,1], tau.R[j])
                 
-        loglik[j,1] <- logdensity.norm(y[j,1], N[j,1], tau.R[j])      
+        loglik[j,1] <- logdensity.norm(log(y[j,1]), N[j,1], tau.R[j])      
         sigma.R[j] ~ dgamma(2, 0.5)
         tau.R[j] <- 1/(sigma.R[j] * sigma.R[j])
     }
@@ -64,9 +64,9 @@ model{
             N[j, s] ~ dnorm(pred.N[j,s], tau.Q[j])T(0,)
 
             # observation
-            y[j, s] ~  dnorm(N[j, s], tau.R[j])
+            log(y[j, s]) ~  dnorm(N[j, s], tau.R[j])
                 
-            loglik[j, s] <- logdensity.norm(y[j,s], N[j,s], tau.R[j]) 
+            loglik[j, s] <- logdensity.norm(log(y[j,s]), N[j,s], tau.R[j]) 
         }       
 
         # Q is the variance of the process (N)

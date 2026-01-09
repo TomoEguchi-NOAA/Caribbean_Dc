@@ -3,10 +3,8 @@ library(posterior)
 
 run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.params, Rhat.params){
   
-  jags.out <- loo.out <- list()
-  Rmax <- list() #vector(mode = "numeric", length = length(out.names))
-  
-  
+  jags.out <- list()
+
   for (k in 1:length(model.list)){
     file.name.root <- unlist(str_split(unlist(str_split(model.list[[k]]$file.name, ".txt"))[1],
                                        pattern = "Model_JAGS_"))[2]
@@ -30,11 +28,30 @@ run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.para
       
       toc <- Sys.time()
       
+      Rmax <- rank.normalized.R.hat(jm$samples, 
+                                    params = Rhat.params, 
+                                    MCMC.params = MCMC.params)
+      
+      loglik.mat <- jm$sims.list$loglik
+      
+      n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+      Reff <- relative_eff(exp(loglik.mat),
+                           chain_id = rep(1:MCMC.params$n.chains,
+                                          each = n.per.chain),
+                           cores = MCMC.params$n.chains)
+      
+      loo.out <- rstanarm::loo(loglik.mat, 
+                               r_eff = Reff, 
+                               cores = MCMC.params$n.chains, 
+                               k_threshold = 0.7)
+      
       out.list <- list(jags.out = jm,
                        jags.data = jags.data,
                        Run.Date = tic,
                        Run.Time = toc - tic,
-                       MCMC.params = MCMC.params)
+                       MCMC.params = MCMC.params,
+                       Rmax = Rmax,
+                       loo.out = loo.out)
       
       saveRDS(out.list, 
               file = paste0("RData/", model.list[[k]]$out.file.name))
@@ -43,29 +60,12 @@ run.all.models.1 <- function(model.list, jags.data, params.to.monitor, MCMC.para
       out.list <- readRDS(file = paste0("RData/", model.list[[k]]$out.file.name))
     }
     
-    Rmax[[k]] <- rank.normalized.R.hat(out.list$jags.out$samples, 
-                                       params = Rhat.params, 
-                                       MCMC.params = MCMC.params)
     
-    loglik.mat <- out.list$jags.out$sims.list$loglik
-    
-    n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
-    Reff <- relative_eff(exp(loglik.mat),
-                         chain_id = rep(1:MCMC.params$n.chains,
-                                        each = n.per.chain),
-                         cores = MCMC.params$n.chains)
-    
-    loo.out[[k]] <- rstanarm::loo(loglik.mat, 
-                                  r_eff = Reff, 
-                                  cores = MCMC.params$n.chains, 
-                                  k_threshold = 0.7)
     jags.out[[k]] <- out.list    
 
   }
   
-  return(list(Rmax = Rmax,
-              loo.out = loo.out,
-              jags.out = jags.out))
+  return(jags.out)
 }
 
 compute.LOOIC <- function(loglik.array, MCMC.params){

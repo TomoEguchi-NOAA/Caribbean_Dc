@@ -47,28 +47,33 @@ model{
     mean.U2 ~ dnorm(0, 0.1)T(0,)
     sigma.U2 ~ dgamma(2, 0.5)
     tau.U2 <- 1/(sigma.U2 * sigma.U2) 
-    
-    # Initial state
-    for(j in 1:n.beaches) {
-        U[j,1] ~ dnorm(mean.U1, tau.U1)
-        U[j,2] ~ dnorm(mean.U2, tau.U2)
-        
-        # high and low years
-        p[j,1] ~ dbeta(1, 1)
-        p[j,2] ~ dbeta(1, 1)
 
+	# Initial state
+    for(j in 1:n.ID) {
+        U[ID.1[j],1] ~ dnorm(mean.U1, tau.U1)
+        U[ID.1[j],2] ~ dnorm(mean.U2, tau.U2)
+
+		# high and low years
+        p[ID.1[j],1] ~ dbeta(1, 1)
+        p[ID.1[j],2] ~ dbeta(1, 1)
+		
         # state     
-        N0[j] ~ dnorm(mean.N0, tau.N0)T(0,)    # prior on init state
+        N0[ID.1[j]] ~ dnorm(mean.N0, tau.N0)T(0,)    # prior on init state
 
-        pred.N[j,1] <- N0[j] * U[j, years[j,1]]  
-        N[j,1] <- pred.N[j,1]
+        pred.N[ID.1[j],1] <- N0[ID.1[j]] * U[ID.1[j], years.1[ID.1[j]]]  
+        N[ID.1[j],1] <- pred.N[ID.1[j],1]
         
         # observation
-        y[j,1] ~  dpois(p[j, high.low[j,1]] * N[j,1])
+        y.1[j] ~ dpois(p[ID.1[j], high.low[ID.1[j],1]] * N[ID.1[j],1]) 
                 
-        loglik[j,1] <- logdensity.pois(y[j,1], p[j,high.low[j,1]] * N[j,1])      
-        
+        loglik[j] <- logdensity.pois(y.1[j], p[ID.1[j], high.low[ID.1[j],1]] * N[ID.1[j],1])
+				
+        # Q is the variance of the process (N)
+        sigma.Q[ID.1[j]] ~ dgamma(2, 0.5)
+        tau.Q[ID.1[j]] <- 1/(sigma.Q[ID.1[j]] * sigma.Q[ID.1[j]])                       
+
     }
+
 
     ####  End of initial states ####  
 
@@ -90,8 +95,17 @@ model{
 
     }
       
-    
+   for (j in 1:n.2plus){
+        # State
+        pred.N[ID.2[j], year.2[j]] <- U[ID.2[j], years.2[ID.2[j]]] * N[ID.2[j], (year.2[j]-1)]
+        N[ID.2[j], year.2[j]] ~ dnorm(pred.N[ID.2[j], year.2[j]], tau.Q[ID.2[j]])T(0,)
 
+        # observation
+        y.2[j] ~  dpois(p[ID.1[j], high.low[ID.1[j], year.2[j]]] * N[ID.2[j], year.2[j]])
+                
+        loglik[j+n.ID] <- logdensity.pois(y.2[j], p[ID.1[j], high.low[ID.1[j], year.2[j]]] * N[ID.2[j],year.2[j]])		
+    }
+      
     #mu ~ dnorm(0, 0.1)
     
 }

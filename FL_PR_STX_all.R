@@ -453,34 +453,211 @@ out.PR.2 <- run.all.models.1(model.list = model.list.PR,
 
 ############## A new approach starts here ###################################
 
-# Create a vector of variable names for missing years
-missing.y <- c()
+# for the Norm-Norm model, observed y is in the log space.
+# for the Norm-Pois models, observed y is a count
+# Model files need to be in a list
+model.file.names <- c("Model_norm_norm_QsRs_2Us.txt",
+                      "Model_norm_Pois_Qs_2Us.txt",
+                      "Model_norm_Pois_Qs_2Us_lat.txt",
+                      "Model_norm_Pois_Qs_2Us_skip.txt")
+#                      "Model_norm_Pois_2Us_skip_Nsum.txt")
 
-for (k in 1:length(NA.idx)){
-  if (length(NA.idx[[k]]) > 0){
-    for (k1 in 1:length(NA.idx[[k]])){
-      missing.y <- c(missing.y, 
-                     paste0("y[", k, ",", NA.idx[[k]][k1], "]"))
-    }
-  }
+models.list.2 <- list(ID = c(1:length(model.file.names)),
+                      file.names = model.file.names)
+
+
+######################## FL ######################################
+# Data for FL
+FL.nest.counts %>% 
+  group_by(ID) %>%
+  summarise(n.years = max(year) - min(year) + 1,
+            year.1 = min(year),
+            year.2 = max(year),
+            lat = first(latitude)) -> FL.summary.years
+
+# Convert y, beach ID, and year into vectors
+FL.year.vec <- FL.y.vec <- vector(mode = "numeric", 
+                                  length = sum(FL.summary.years$n.years))
+
+FL.ID.vec <- rep(as.vector(FL.summary.years$ID),
+                 times = as.vector(FL.summary.years$n.years))
+
+FL.lat.vec <- as.vector(FL.summary.years$lat)
+
+FL.years.vec <- vector(mode = "numeric", length = length(FL.y.vec))
+FL.years.vec[FL.year.vec < 2012] <- 1
+FL.years.vec[FL.year.vec > 2011] <- 2
+c <- 1
+uniq.IDs <- unique(FL.summary.years$ID)
+for (k in 1:length(uniq.IDs)){
+  FL.summary.years %>%
+    filter(ID == uniq.IDs[k]) -> summary.1
+  
+  FL.year.vec[c:(c+summary.1$n.years-1)] <- seq(from = 1,
+                                                to = summary.1$n.years)
+  
+  FL.nest.counts %>% 
+    filter(ID == uniq.IDs[k]) -> tmp.0
+  
+  year.df <- data.frame(year = seq(min(tmp.0$year), 
+                                   max(tmp.0$year)))
+  
+  tmp.0 %>%
+    select(year, nests) %>% 
+    right_join(y = year.df, by = "year") %>%
+    arrange(by = year) %>%
+    mutate(col.yr = year - min(year) + 1) -> tmp
+
+  FL.y.vec[c:(c+summary.1$n.years-1)] <- tmp$nests
+  
+  c <- c + summary.1$n.years
 }
 
+FL.y.1 <- FL.y.vec[FL.year.vec == 1]
+FL.ID.1 <- FL.ID.vec[FL.year.vec == 1]
+FL.years.1 <- FL.years.vec[FL.year.vec == 1]
+
+FL.y.2plus <- FL.y.vec[FL.year.vec > 1]
+FL.year.2plus <- FL.year.vec[FL.year.vec > 1]
+FL.ID.2plus <- FL.ID.vec[FL.year.vec > 1]
+FL.years.2plus <- FL.years.vec[FL.year.vec > 1]
+
+# each row is a beach
+# FL.year.mat <- FL.y <- matrix(nrow = nrow(FL.summary.years), 
+#                               ncol = max(FL.summary.years$year.2) - min(FL.summary.years$year.1) + 1)
+# 
+# FL.years <- matrix(data = 2, nrow = nrow(FL.year.mat), ncol = ncol(FL.year.mat))
+# 
+# # find which data points are missing.
+# FL.NA.idx <- vector(mode = "list", 
+#                     length = nrow(FL.summary.years))
+# 
+# k <- 3
+# for (k in 1:nrow(FL.summary.years)){
+#   FL.nest.counts %>% 
+#     filter(ID == FL.summary.years$ID[k]) -> tmp.0
+#     
+#   year.df <- data.frame(year = seq(min(tmp.0$year), 
+#                                    max(tmp.0$year)))
+#     
+#  tmp.0 %>%
+#     select(year, nests) %>% 
+#     right_join(y = year.df, by = "year") %>%
+#     arrange(by = year) %>%
+#     mutate(col.yr = year - min(year) + 1) -> tmp
+#   
+#   FL.y[k,tmp$col.yr] <- tmp$nests
+#   FL.year.mat[k, tmp$col.yr] <- tmp$year
+#   
+#   FL.years[k, FL.year.mat[k,] < 2012] <- 1
+#   
+#   if (sum(is.na(FL.y[k, 1:nrow(tmp)])) > 0)
+#     FL.NA.idx[[k]] <- c(1:nrow(tmp))[is.na(FL.y[k, 1:nrow(tmp)])]
+# }
+# 
+# # Create a vector of variable names for missing years
+# FL.missing.y <- c()
+# 
+# for (k in 1:length(FL.NA.idx)){
+#   if (length(FL.NA.idx[[k]]) > 0){
+#     for (k1 in 1:length(FL.NA.idx[[k]])){
+#       FL.missing.y <- c(FL.missing.y, 
+#                         paste0("FL.y[", k, ",", FL.NA.idx[[k]][k1], "]"))
+#     }
+#   }
+# }
 
 # These are for my new models:
 parameters.to.monitor.2 <- c(c("U", "mean.U1", "sigma.U1",
                                "mean.U2", "sigma.U2", "p",
-                               "sigma.Q",  "loglik", "N"),
-                             missing.y)
+                               "r",  "loglik", "N", "N0",
+                               "b0.U1", "b1.U1",
+                               "b0.U2", "b1.U2"),
+                             FL.missing.y)
 
-# Model files need to be in a list
-models.list.2 <- list(ID = c(1:5),
-                    file.names = c("Model_norm_norm_QsRs_2Us.txt",
-                                   "Model_norm_Pois_Qs_2Us.txt",
-                                   "Model_norm_Pois_Qs_2Us_lat.txt",
-                                   "Model_norm_Pois_Qs_2Us_skip.txt",
-                                   "Model_norm_Pois_2Us_skip_Nsum.txt"))
-
-
-
+out.list <- list()
+k <- 3
+for (k in 1:length(model.file.names)){
+  MCMC.params$model.file <- paste0("models/", model.file.names[k]) 
+  tmp.1 <- str_split(model.file.names[k], "Model_")[[1]][2]
+  out.file.name <- paste0("RData/", str_split(tmp.1, ".txt")[[1]][1], ".rds") 
+  if (str_detect(model.file.names[k], "norm_norm")){
+    jags.data.FL.2 <- list(ID.1 = FL.ID.1,
+                           ID.2 = FL.ID.2plus,
+                           n.ID = nrow(FL.y),
+                           years.1 = FL.years.1,
+                           years.2 = FL.years.2plus,
+                           year.2 = FL.year.2plus,
+                           y.1 = log(FL.y.1),
+                           y.2 = log(FL.y.2plus),
+                           n.2plus = length(FL.y.2plus))
+      
+      # n.beaches = nrow(FL.y),
+      #                      n.years = FL.summary.years$n.years,
+      #                      y = log(FL.y + 1),
+      #                      years = FL.years)
+      # 
+  } else if (str_detect(model.file.names[k], "norm_Pois")){
+    jags.data.FL.2 <- list(ID.1 = FL.ID.1,
+                           ID.2 = FL.ID.2plus,
+                           n.ID = nrow(FL.y),
+                           years.1 = FL.years.1,
+                           years.2 = FL.years.2plus,
+                           year.2 = FL.year.2plus,
+                           y.1 = FL.y.1,
+                           y.2 = FL.y.2plus,
+                           n.2plus = length(FL.y.2plus),
+                           lat = FL.lat.vec)
+    
+    
+  }
+  
+  if (!file.exists(out.file.name)){
+    tic <- Sys.time()
+    jm <- jags(data = jags.data.FL.2,
+               #inits = inits,
+               parameters.to.save= parameters.to.monitor.2,
+               model.file = MCMC.params$model.file,
+               n.chains = MCMC.params$n.chains,
+               n.burnin = MCMC.params$n.burnin,
+               n.thin = MCMC.params$n.thin,
+               n.iter = MCMC.params$n.samples,
+               DIC = T, 
+               parallel=T)
+    toc <- Sys.time() - tic
+    
+    Rmax <- rank.normalized.R.hat(jm$samples, 
+                                  params = Rhat.params, 
+                                  MCMC.params = MCMC.params)
+    
+    loglik.mat <- jm$sims.list$loglik
+    
+    n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+    Reff <- relative_eff(exp(loglik.mat),
+                         chain_id = rep(1:MCMC.params$n.chains,
+                                        each = n.per.chain),
+                         cores = MCMC.params$n.chains)
+    
+    loo.out <- rstanarm::loo(loglik.mat, 
+                             r_eff = Reff, 
+                             cores = MCMC.params$n.chains, 
+                             k_threshold = 0.7)
+    
+    out.list[[k]] <- list(jags.out = jm,
+                          jags.data = jags.data.FL.2,
+                          Run.Date = tic,
+                          Run.Time = toc - tic,
+                          MCMC.params = MCMC.params,
+                          Rmax = Rmax,
+                          loo.out = loo.out)
+    
+    saveRDS(out.list, 
+            file = out.file.name)
+  } else {
+    
+    out.list[[k]] <- readRDS(out.file.name)
+  
+    
+}
 
 

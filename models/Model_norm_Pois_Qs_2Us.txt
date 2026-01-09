@@ -19,6 +19,10 @@
 # 2020-04-10 (original)
 # 2010-04-14 (2Us)
 #
+# Changed the data format to make LOOIC computations easier. All data are now in
+# vectors. 2026-01-09
+
+# Old data format:
 # Provide the following variables in data 
 # n.beaches = the number of beaches (a scalar)
 # n.years = the number of years of observations per beach (a vector)
@@ -45,43 +49,41 @@ model{
     sigma.U2 ~ dgamma(2, 0.5)
     tau.U2 <- 1/(sigma.U2 * sigma.U2) 
 
-    # Initial state
-    for(j in 1:n.beaches) {
-        U[j,1] ~ dnorm(mean.U1, tau.U1)
-        U[j,2] ~ dnorm(mean.U2, tau.U2)
+	# Initial state
+    for(j in 1:n.ID) {
+        U[ID.1[j],1] ~ dnorm(mean.U1, tau.U1)
+        U[ID.1[j],2] ~ dnorm(mean.U2, tau.U2)
 
         # state     
-        N0[j] ~ dnorm(mean.N0, tau.N0)T(0,)    # prior on init state
+        N0[ID.1[j]] ~ dnorm(mean.N0, tau.N0)T(0,)    # prior on init state
 
-        pred.N[j,1] <- N0[j] * U[j, years[j,1]]  
-        N[j,1] <- pred.N[j,1]
+        pred.N[ID.1[j],1] <- N0[ID.1[j]] * U[ID.1[j], years.1[ID.1[j]]]  
+        N[ID.1[j],1] <- pred.N[ID.1[j],1]
         
         # observation
-        y[j,1] ~  dpois(N[j,1])
+        y.1[j] ~ dpois(N[ID.1[j],1]) 
                 
-        loglik[j,1] <- logdensity.pois(y[j,1], N[j,1])      
-        
+        loglik[j] <- logdensity.pois(y.1[j], N[ID.1[j],1])
+				
+        # Q is the variance of the process (N)
+        sigma.Q[ID.1[j]] ~ dgamma(2, 0.5)
+        tau.Q[ID.1[j]] <- 1/(sigma.Q[ID.1[j]] * sigma.Q[ID.1[j]])                       
+
     }
 
     ####  End of initial states ####  
+    for (j in 1:n.2plus){
+        # State
+        pred.N[ID.2[j], year.2[j]] <- U[ID.2[j], years.2[ID.2[j]]] * N[ID.2[j], (year.2[j]-1)]
+        N[ID.2[j], year.2[j]] ~ dnorm(pred.N[ID.2[j], year.2[j]], tau.Q[ID.2[j]])T(0,)
 
-    for (j in 1:n.beaches){
-        for (s in 2:n.years[j]){
-            # State
-            pred.N[j, s] <- U[j, years[j,s]] * N[j, s-1]
-            N[j, s] ~ dnorm(pred.N[j,s], tau.Q[j])T(0,)
-
-            # observation
-            y[j, s] ~  dpois(N[j, s])
+        # observation
+        y.2[j] ~  dpois(N[ID.2[j], year.2[j]])
                 
-            loglik[j, s] <- logdensity.pois(y[j,s], N[j,s]) 
-        }       
-
-        # Q is the variance of the process (N)
-        sigma.Q[j] ~ dgamma(2, 0.5)
-        tau.Q[j] <- 1/(sigma.Q[j] * sigma.Q[j])                       
-
+        loglik[j+n.ID] <- logdensity.pois(y.2[j], N[ID.2[j],year.2[j]])		
     }
+      
+ 
       
     
 
