@@ -545,11 +545,11 @@ FL.years.2plus <- FL.year.idx.vec[FL.year.1toT.vec > 1]
 high.low.2plus <- ifelse(FL.year.2plus %% 2 == 0, 1, 2)
 
 # Need to find missing y index. 
-missing.y <- c()
+FL.missing.y <- c()
 NA.idx <- c(1:length(FL.y.2plus))[is.na(FL.y.2plus)]
 
 for (k in 1:length(NA.idx)){
-  FL.missing.y <- c(missing.y, paste0("y[", NA.idx[k], "]"))
+  FL.missing.y <- c(FL.missing.y, paste0("y[", NA.idx[k], "]"))
 }
 
 #
@@ -564,7 +564,7 @@ parameters.to.monitor.2 <- c("U", "mean.U1", "sigma.U1",
 Rhat.params <- "^U|^mean.|^sigma.|^b|^N"
 
 out.list <- list()
-k <- 4
+k <- 1
 for (k in 1:length(model.file.names)){
   MCMC.params$model.file <- paste0("models/", model.file.names[k]) 
   tmp.1 <- str_split(model.file.names[k], "Model_")[[1]][2]

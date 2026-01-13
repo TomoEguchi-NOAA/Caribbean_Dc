@@ -69,7 +69,7 @@ model{
     ####  End of initial states ####  
     for (j in 1:n.2plus){
         # State
-        pred.N[ID.2[j], year.2[j]] <- U[ID.2[j], years.2[ID.2[j]]] + N[ID.2[j], (year.2[j]-1)]
+        pred.N[ID.2[j], year.2[j]] <- U[ID.2[j], years.2[j]] + N[ID.2[j], (year.2[j]-1)]
         N[ID.2[j], year.2[j]] ~ dnorm(pred.N[ID.2[j], year.2[j]], tau.Q[ID.2[j]])T(0,)
 
         # observation
