@@ -467,7 +467,7 @@ models.list.2 <- list(ID = c(1:length(model.file.names)),
 
 
 ######################## FL ######################################
-# Data for FL
+# Data for FL0
 FL.nest.counts %>% 
   group_by(ID) %>%
   summarise(n.years = max(year) - min(year) + 1,
@@ -475,121 +475,112 @@ FL.nest.counts %>%
             year.2 = max(year),
             lat = first(latitude)) -> FL.summary.years
 
-# Convert y, beach ID, and year into vectors
-FL.year.vec <- FL.y.vec <- vector(mode = "numeric", 
-                                  length = sum(FL.summary.years$n.years))
+year.1 <- min(FL.nest.counts$year)
 
-FL.ID.vec <- rep(as.vector(FL.summary.years$ID),
-                 times = as.vector(FL.summary.years$n.years))
+# Convert y, beach ID, and year into vectors
+FL.year.seq.vec <- FL.y.vec <- vector(mode = "numeric",
+                                      length = sum(FL.summary.years$n.years))
+
+FL.year.1toT.vec <- vector(mode = "numeric",
+                           length = sum(FL.summary.years$n.years))
+
+FL.year.vec <- as.vector(FL.nest.counts$year)
+FL.y.vec <- as.vector(FL.nest.counts$nests)
+
+FL.ID.vec <- as.vector(FL.nest.counts$ID) #$ rep(as.vector(FL.summary.years$ID),
+                 #times = as.vector(FL.summary.years$n.years))
 
 FL.lat.vec <- as.vector(FL.summary.years$lat)
 
-FL.years.vec <- vector(mode = "numeric", length = length(FL.y.vec))
-FL.years.vec[FL.year.vec < 2012] <- 1
-FL.years.vec[FL.year.vec > 2011] <- 2
+FL.year.idx.vec <- vector(mode = "numeric", length = length(FL.y.vec))
+FL.year.idx.vec[FL.year.vec < 2012] <- 1
+FL.year.idx.vec[FL.year.vec > 2011] <- 2
+
 c <- 1
+k <- 3
 uniq.IDs <- unique(FL.summary.years$ID)
+min.seq.yr <- high.low.1 <- vector(mode = "numeric", length = length(uniq.IDs))
+FL.y.1 <- FL.ID.1 <- FL.years.1 <- vector(mode = "numeric", length = length(uniq.IDs))
+
 for (k in 1:length(uniq.IDs)){
   FL.summary.years %>%
     filter(ID == uniq.IDs[k]) -> summary.1
   
-  FL.year.vec[c:(c+summary.1$n.years-1)] <- seq(from = 1,
-                                                to = summary.1$n.years)
+  FL.nest.counts %>%
+    filter(ID == uniq.IDs[k]) -> counts.1
+
+  year.df <- data.frame(year = seq(min(counts.1$year), 
+                                   max(counts.1$year)))
   
-  FL.nest.counts %>% 
-    filter(ID == uniq.IDs[k]) -> tmp.0
-  
-  year.df <- data.frame(year = seq(min(tmp.0$year), 
-                                   max(tmp.0$year)))
-  
-  tmp.0 %>%
+  counts.1 %>%
     select(year, nests) %>% 
     right_join(y = year.df, by = "year") %>%
     arrange(by = year) %>%
-    mutate(col.yr = year - min(year) + 1) -> tmp
+    mutate(seq.yr = year - year.1 + 1,
+           seq.1toT = seq(from = 1, 
+                          to = (max(year) - min(year) + 1))) -> tmp
 
   FL.y.vec[c:(c+summary.1$n.years-1)] <- tmp$nests
+  
+  # convert sampling years to sequential years from the first year (year.1)  
+  FL.year.seq.vec[c:(c+summary.1$n.years-1)] <- tmp$seq.yr
+  FL.year.1toT.vec[c:(c+summary.1$n.years-1)] <- tmp$seq.1toT
+  
+  min.seq.yr[k] <- min(tmp$seq.yr, na.rm = T)
+  high.low.1[k] <- ifelse(min.seq.yr[k] %% 2 == 0, 1, 2)
+  FL.y.1[k] <- counts.1$nests[1]
+  FL.ID.1[k] <- uniq.IDs[k]
+  
+  FL.years.1[k] <- ifelse(counts.1$year[1] < 2012, 1, 2)
   
   c <- c + summary.1$n.years
 }
 
-FL.y.1 <- FL.y.vec[FL.year.vec == 1]
-FL.ID.1 <- FL.ID.vec[FL.year.vec == 1]
-FL.years.1 <- FL.years.vec[FL.year.vec == 1]
+FL.year.1toT.1 <- FL.year.1toT.vec[FL.year.1toT.vec == 1]
+FL.year.1toT.2plus <- FL.year.1toT.vec[FL.year.1toT.vec > 1]
+FL.y.2plus <- FL.y.vec[FL.year.1toT.vec > 1]
+FL.year.2plus <- FL.year.seq.vec[FL.year.1toT.vec > 1]
+FL.ID.2plus <- FL.ID.vec[FL.year.1toT.vec > 1]
+FL.years.2plus <- FL.year.idx.vec[FL.year.1toT.vec > 1]
+high.low.2plus <- ifelse(FL.year.2plus %% 2 == 0, 1, 2)
 
-FL.y.2plus <- FL.y.vec[FL.year.vec > 1]
-FL.year.2plus <- FL.year.vec[FL.year.vec > 1]
-FL.ID.2plus <- FL.ID.vec[FL.year.vec > 1]
-FL.years.2plus <- FL.years.vec[FL.year.vec > 1]
+# Need to find missing y index. 
+missing.y <- c()
+NA.idx <- c(1:length(FL.y.2plus))[is.na(FL.y.2plus)]
 
-# each row is a beach
-# FL.year.mat <- FL.y <- matrix(nrow = nrow(FL.summary.years), 
-#                               ncol = max(FL.summary.years$year.2) - min(FL.summary.years$year.1) + 1)
-# 
-# FL.years <- matrix(data = 2, nrow = nrow(FL.year.mat), ncol = ncol(FL.year.mat))
-# 
-# # find which data points are missing.
-# FL.NA.idx <- vector(mode = "list", 
-#                     length = nrow(FL.summary.years))
-# 
-# k <- 3
-# for (k in 1:nrow(FL.summary.years)){
-#   FL.nest.counts %>% 
-#     filter(ID == FL.summary.years$ID[k]) -> tmp.0
-#     
-#   year.df <- data.frame(year = seq(min(tmp.0$year), 
-#                                    max(tmp.0$year)))
-#     
-#  tmp.0 %>%
-#     select(year, nests) %>% 
-#     right_join(y = year.df, by = "year") %>%
-#     arrange(by = year) %>%
-#     mutate(col.yr = year - min(year) + 1) -> tmp
-#   
-#   FL.y[k,tmp$col.yr] <- tmp$nests
-#   FL.year.mat[k, tmp$col.yr] <- tmp$year
-#   
-#   FL.years[k, FL.year.mat[k,] < 2012] <- 1
-#   
-#   if (sum(is.na(FL.y[k, 1:nrow(tmp)])) > 0)
-#     FL.NA.idx[[k]] <- c(1:nrow(tmp))[is.na(FL.y[k, 1:nrow(tmp)])]
-# }
-# 
-# # Create a vector of variable names for missing years
-# FL.missing.y <- c()
-# 
-# for (k in 1:length(FL.NA.idx)){
-#   if (length(FL.NA.idx[[k]]) > 0){
-#     for (k1 in 1:length(FL.NA.idx[[k]])){
-#       FL.missing.y <- c(FL.missing.y, 
-#                         paste0("FL.y[", k, ",", FL.NA.idx[[k]][k1], "]"))
-#     }
-#   }
-# }
+for (k in 1:length(NA.idx)){
+  FL.missing.y <- c(missing.y, paste0("y[", NA.idx[k], "]"))
+}
 
+#
 # These are for my new models:
-parameters.to.monitor.2 <- c(c("U", "mean.U1", "sigma.U1",
+parameters.to.monitor.2 <- c("U", "mean.U1", "sigma.U1",
                                "mean.U2", "sigma.U2", "p",
                                "r",  "loglik", "N", "N0",
                                "b0.U1", "b1.U1",
-                               "b0.U2", "b1.U2"),
+                               "b0.U2", "b1.U2",
                              FL.missing.y)
 
+Rhat.params <- "^U|^mean.|^sigma.|^b|^N"
+
 out.list <- list()
-k <- 3
+k <- 4
 for (k in 1:length(model.file.names)){
   MCMC.params$model.file <- paste0("models/", model.file.names[k]) 
   tmp.1 <- str_split(model.file.names[k], "Model_")[[1]][2]
-  out.file.name <- paste0("RData/", str_split(tmp.1, ".txt")[[1]][1], ".rds") 
+  out.file.name <- paste0("RData/JAGS_out_", str_split(tmp.1, ".txt")[[1]][1], ".rds") 
   if (str_detect(model.file.names[k], "norm_norm")){
+    # For the normal likelihood, I have to add 1 to counts so that there is no
+    # log(0) = -Inf, which causes problems (errors)
     jags.data.FL.2 <- list(ID.1 = FL.ID.1,
                            ID.2 = FL.ID.2plus,
-                           n.ID = nrow(FL.y),
+                           n.ID = length(FL.y.1),
                            years.1 = FL.years.1,
                            years.2 = FL.years.2plus,
-                           year.2 = FL.year.2plus,
-                           y.1 = log(FL.y.1),
-                           y.2 = log(FL.y.2plus),
+                           #year.1 = ,
+                           year.2 = FL.year.1toT.2plus,
+                           y.1 = log(FL.y.1 + 1),
+                           y.2 = log(FL.y.2plus + 1),
                            n.2plus = length(FL.y.2plus))
       
       # n.beaches = nrow(FL.y),
@@ -600,15 +591,17 @@ for (k in 1:length(model.file.names)){
   } else if (str_detect(model.file.names[k], "norm_Pois")){
     jags.data.FL.2 <- list(ID.1 = FL.ID.1,
                            ID.2 = FL.ID.2plus,
-                           n.ID = nrow(FL.y),
+                           n.ID = length(FL.y.1),
                            years.1 = FL.years.1,
                            years.2 = FL.years.2plus,
-                           year.2 = FL.year.2plus,
+                           #year.1 = min.seq.yr,
+                           year.2 = FL.year.1toT.2plus,
                            y.1 = FL.y.1,
                            y.2 = FL.y.2plus,
                            n.2plus = length(FL.y.2plus),
-                           lat = FL.lat.vec)
-    
+                           lat = FL.lat.vec,
+                           high.low.1 = high.low.1,
+                           high.low.2plus = high.low.2plus)
     
   }
   
@@ -646,18 +639,18 @@ for (k in 1:length(model.file.names)){
     out.list[[k]] <- list(jags.out = jm,
                           jags.data = jags.data.FL.2,
                           Run.Date = tic,
-                          Run.Time = toc - tic,
+                          Run.Time = toc,
                           MCMC.params = MCMC.params,
                           Rmax = Rmax,
                           loo.out = loo.out)
     
-    saveRDS(out.list, 
+    saveRDS(out.list[[k]], 
             file = out.file.name)
   } else {
     
     out.list[[k]] <- readRDS(out.file.name)
   
     
+  }
 }
-
 

@@ -73,7 +73,7 @@ model{
         N[ID.2[j], year.2[j]] ~ dnorm(pred.N[ID.2[j], year.2[j]], tau.Q[ID.2[j]])T(0,)
 
         # observation
-        y.2[j] ~  dnorm(N[ID.2[j], year.2[j]], tau.R[ID.2[j]])
+        y.2[j] ~  dnorm(N[ID.2[j], year.2[j]], tau.R[ID.2[j]])T(0,) 
                 
         loglik[j+n.ID] <- logdensity.norm(y.2[j], N[ID.2[j],year.2[j]], tau.R[ID.2[j]])		
     }
