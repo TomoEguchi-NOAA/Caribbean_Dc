@@ -66,7 +66,7 @@ model{
         # observation
         y.1[j] ~ dpois(p[ID.1[j], high.low.1[ID.1[j]]] * N[ID.1[j], 1]) 
                 
-        loglik[j] <- logdensity.pois(y.1[j], p[ID.1[j], high.low[ID.1[j]]] * N[ID.1[j], 1])
+        loglik[j] <- logdensity.pois(y.1[j], p[ID.1[j], high.low.1[ID.1[j]]] * N[ID.1[j], 1])
 				
         # Q is the variance of the process (N)
         sigma.Q[ID.1[j]] ~ dgamma(2, 0.5)
@@ -85,7 +85,7 @@ model{
         # observation
         y.2[j] ~  dpois(p[ID.2[j], high.low.2plus[ID.2[j]]] * N[ID.2[j], year.2[j]])
                 
-        loglik[j+n.ID] <- logdensity.pois(y.2[j], p[ID.2[j], high.low[ID.2[j]]] * N[ID.2[j],year.2[j]])		
+        loglik[j+n.ID] <- logdensity.pois(y.2[j], p[ID.2[j], high.low.2plus[ID.2[j]]] * N[ID.2[j],year.2[j]])		
     }
       
     #mu ~ dnorm(0, 0.1)
