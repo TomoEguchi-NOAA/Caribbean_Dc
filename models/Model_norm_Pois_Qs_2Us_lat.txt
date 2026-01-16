@@ -52,18 +52,20 @@ model{
     sigma.U2 ~ dgamma(2, 0.5)
     tau.U2 <- 1/(sigma.U2 * sigma.U2) 
     
+	THIS DOES NOT WORK. IT DOESN'T MAKE SENSE TO HAVE U FOR EACH BEACH. 
+	# one U for before 2011 and another since 2011
+    log(U[1]) <- b0.U1 + b1.U1 * lat[j] 
+
+    # for since 2011
+    log(U[2]) <- b0.U2 + b1.U2 * lat[j] 
+
     # Initial state
 	for(j in 1:n.ID) {
-        # one U for before 2011 and another since 2011
-        log(U[ID.1[j],1]) <- b0.U1 + b1.U1 * lat[j] 
-
-        # for since 2011
-        log(U[ID.1[j],2]) <- b0.U2 + b1.U2 * lat[j] 
-
+        
         # state     
         N0[ID.1[j]] ~ dnorm(mean.N0, tau.N0)T(0,)    # prior on init state
 
-        pred.N[ID.1[j],1] <- N0[ID.1[j]] * U[ID.1[j], years.1[ID.1[j]]]  
+        pred.N[ID.1[j],1] <- N0[ID.1[j]] * U[years.1[ID.1[j]]]  
         N[ID.1[j],1] <- pred.N[ID.1[j],1]
         
         # observation
@@ -81,7 +83,7 @@ model{
  
     for (j in 1:n.2plus){
         # State
-        pred.N[ID.2[j], year.2[j]] <- U[ID.2[j], years.2[ID.2[j]]] * N[ID.2[j], (year.2[j]-1)]
+        pred.N[ID.2[j], year.2[j]] <- U[years.2[ID.2[j]]] * N[ID.2[j], (year.2[j]-1)]
         N[ID.2[j], year.2[j]] ~ dnorm(pred.N[ID.2[j], year.2[j]], tau.Q[ID.2[j]])T(0,)
 
         # observation

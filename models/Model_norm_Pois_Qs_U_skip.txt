@@ -7,17 +7,19 @@
 # https://nwfsc-timeseries.github.io/atsa-labs/sec-jags-uss.html
 #
 # For this model, the raw counts were used as data (y). The state model
-# is normal and the observation model is Poisson. 
+# is normal and the observation model is Poisson. I added skip nesting
+# in this model by having a proportion of Nt available for sampling.
 #
 # I didn't see any reason to make the priors flatter because that would make convergence difficult
 # and did not gain anything in return. 
 #
-# In this approach, I use two Us (population grwoth rate); one for up to 2011 and another for 
-# since 2011. It appears that there are decline at some beaches.
+# In this approach, I use one U (population grwoth rate).
 
 # This model was converted from one for the Indonesia leatherback nesting project.
 # 2020-04-10 (original)
-# 2010-04-14 (2Us)
+# 2020-04-14 (2Us)
+# 2020-04-16 (skip nesting)
+# 2026-01-15 (1U)
 #
 # Changed the data format to make LOOIC computations easier. All data are now in
 # vectors. 2026-01-09
@@ -28,6 +30,7 @@
 # n.years = the number of years of observations per beach (a vector)
 # years = observation years in 1 or 2, where 1 is before the change year and 2 is for since the change year (a matrix of n.beaches x max(n.years)). This needs to match with y below.
 # y = observed number of nests/females per year (a matrix of n.beaches x max(n.years))
+# high.low = high/low years in 1 or 2. It is a matrix of n.beaches x max(n.years), where 1 and 2 alternate from the first year to the end. This parameter is trying to incorporate high/low cyclical nature of observed nesting.
 
 
 model{
@@ -44,27 +47,24 @@ model{
     sigma.U1 ~ dgamma(2, 0.5)
     tau.U1 <- 1/(sigma.U1 * sigma.U1) 
 
-    # for since 2011
-    mean.U2 ~ dnorm(0, 0.1)T(0,)
-    sigma.U2 ~ dgamma(2, 0.5)
-    tau.U2 <- 1/(sigma.U2 * sigma.U2) 
-
-    U[1] ~ dnorm(mean.U1, tau.U1)
-    U[2] ~ dnorm(mean.U2, tau.U2)
-
+    U1 ~ dnorm(mean.U1, tau.U1)
+    
+	# high and low years
+    p[1] ~ dbeta(1, 1)
+    p[2] ~ dbeta(1, 1)
+		
 	# Initial state
     for(j in 1:n.ID) {
-
         # state     
         N0[ID.1[j]] ~ dnorm(mean.N0, tau.N0)T(0,)    # prior on init state
 
-        pred.N[ID.1[j],1] <- N0[ID.1[j]] * U[years.1[ID.1[j]]]  
-        N[ID.1[j],1] <- pred.N[ID.1[j],1]
+        pred.N[ID.1[j],1] <- N0[ID.1[j]] * U1  
+        N[ID.1[j], 1] <- pred.N[ID.1[j], 1]
         
         # observation
-        y.1[j] ~ dpois(N[ID.1[j],1]) 
+        y.1[j] ~ dpois(p[high.low.1[ID.1[j]]] * N[ID.1[j], 1]) 
                 
-        loglik[j] <- logdensity.pois(y.1[j], N[ID.1[j],1])
+        loglik[j] <- logdensity.pois(y.1[j], p[high.low.1[ID.1[j]]] * N[ID.1[j], 1])
 				
         # Q is the variance of the process (N)
         sigma.Q[ID.1[j]] ~ dgamma(2, 0.5)
@@ -73,21 +73,18 @@ model{
     }
 
     ####  End of initial states ####  
-    for (j in 1:n.2plus){
+      
+	for (j in 1:n.2plus){
         # State
-        pred.N[ID.2[j], year.2[j]] <- U[years.2[ID.2[j]]] * N[ID.2[j], (year.2[j]-1)]
+        pred.N[ID.2[j], year.2[j]] <- U1 * N[ID.2[j], (year.2[j]-1)]
         N[ID.2[j], year.2[j]] ~ dnorm(pred.N[ID.2[j], year.2[j]], tau.Q[ID.2[j]])T(0,)
 
         # observation
-        y.2[j] ~  dpois(N[ID.2[j], year.2[j]])
+        y.2[j] ~  dpois(p[high.low.2plus[ID.2[j]]] * N[ID.2[j], year.2[j]])
                 
-        loglik[j+n.ID] <- logdensity.pois(y.2[j], N[ID.2[j],year.2[j]])		
+        loglik[j+n.ID] <- logdensity.pois(y.2[j], p[high.low.2plus[ID.2[j]]] * N[ID.2[j],year.2[j]])		
     }
       
- 
-      
-    
-
     #mu ~ dnorm(0, 0.1)
     
 }

@@ -75,11 +75,12 @@ median.yr.FL <- select(FL.lat.dat, c(ID, median.yr, min.yr)) %>%
 
 # for the Norm-Norm model, observed y+1 is in the log space.
 # for the Norm-Pois models, observed y is a count
+# "Model_norm_norm_QsRs_2Us.txt",
 
-model.file.names <- c("Model_norm_norm_QsRs_2Us.txt",
-                      "Model_norm_Pois_Qs_2Us.txt",
-                      "Model_norm_Pois_Qs_2Us_lat.txt",
-                      "Model_norm_Pois_Qs_2Us_skip.txt")
+model.file.names <- c("Model_norm_Pois_Qs_2Us.txt",
+                      "Model_norm_Pois_Qs_U_skip.txt",
+                      "Model_norm_Pois_Qs_2Us_skip.txt",
+                      "Model_norm_Pois_Qs_U.txt")
 #                      "Model_norm_Pois_2Us_skip_Nsum.txt")
 
 # Model files in a list for creating a summary list later
@@ -292,19 +293,54 @@ n.big.rank.Rhat <- lapply(big.rank.Rhat,
 max.big.rank.Rhat <- lapply(rank.Rhat,
                             FUN = function(x) max(x))
 
-# From rank-normalized Rhats, model 2 seems to be the best
+# From rank-normalized Rhats, all models seem okay.
 
 # Check goodness-of-fit
 looic <- lapply(out.list,
                 FUN = function(x) x$loo.out)
 
-# The first model is different from others because data are not the same (y + 1)
-# So, they are not quite comprable.
-# Among the three Poisson models (2, 3, and 4), model 2 is the best. 
-
-best.model <- 2
+# Models 1-3 are not that different
+best.model <- 1
 out.best <- out.list[[best.model]]
 rm(list = "out.list")
 
-mcmc_dens(out.best$jags.out$samples, c("U[1,1]", "U[1,2]"))
-mcmc_dens(out.best$jags.out$samples, c("y[72]", "y[170]"))
+# Missing data posteriors
+mcmc_hist(out.best$jags.out$samples, FL.missing.y[1:12], binwidth = 1)
+mcmc_hist(out.best$jags.out$samples, FL.missing.y[13:24], binwidth = 1)
+mcmc_hist(out.best$jags.out$samples, FL.missing.y[25:36], binwidth = 1)
+mcmc_hist(out.best$jags.out$samples, FL.missing.y[37:48], binwidth = 1)
+mcmc_hist(out.best$jags.out$samples, FL.missing.y[49:61], binwidth = 1)
+
+# Rate of change for before and after 2012
+mcmc_dens(out.best$jags.out$samples, c("mean.U1", "mean.U2"))
+
+jags.data.df <- data.frame(year = c(FL.years[FL.year.1toT.vec == 1], 
+                                    FL.years[FL.year.1toT.vec > 1]),
+                           beach = c(FL.ID.1, FL.ID.2plus),
+                           nest = c(FL.y.1, FL.y.2plus))
+
+k <- 1
+for (k in 1:nrow(FL.summary.years)){
+  jags.data.df %>% 
+    filter(beach == k) -> jags.data.1beach 
+  
+  p.1beach <- ggplot(jags.data.1beach) +
+    geom_point(aes(x = year, y = nest))
+  
+}
+
+# Look at the number per year as the sum of all beaches
+jags.data.df %>%
+  arrange(by = beach) %>%
+  pivot_wider(id_cols = year, id_expand = T,
+              names_from = beach,
+              values_from = nest) %>%
+  column_to_rownames("year") -> nest.data.beach
+
+nest.per.year <- data.frame(year = seq(from = min(FL.summary.years$year.1),
+                                       to = max(FL.summary.years$year.2)),
+                            n.nests = rowSums(nest.data.beach, na.rm = T),
+                            n.beaches = rowSums(!is.na(nest.data.beach))) %>%
+  mutate(nests.per.beach = n.nests/n.beaches,
+         var = apply(nest.data.beach, FUN = var, MARGIN = 1, na.rm = T))
+
