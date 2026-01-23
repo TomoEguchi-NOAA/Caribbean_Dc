@@ -84,8 +84,8 @@ model.file.names <- c("Model_norm_Pois_Qs_2Us.txt",
 #                      "Model_norm_Pois_2Us_skip_Nsum.txt")
 
 # Model files in a list for creating a summary list later
-models.list.2 <- list(ID = c(1:length(model.file.names)),
-                      file.names = model.file.names)
+models.table.2 <- data.frame(ID = c(1:length(model.file.names)),
+                             file.names = model.file.names)
 
 ######################## FL ######################################
 # Data for FL0
@@ -179,11 +179,14 @@ for (k in 1:length(NA.idx)){
 
 #
 # These are for my new models:
-parameters.to.monitor.2 <- c("U", "mean.U1", "sigma.U1",
-                               "mean.U2", "sigma.U2", "p",
-                               "r",  "loglik", "N", "N0",
-                               "b0.U1", "b1.U1",
-                               "b0.U2", "b1.U2",
+parameters.to.monitor.2 <- c("U1", "U2",
+                             "mean.U1", "sigma.U1",
+                             "mean.U2", "sigma.U2", 
+                             "p",
+                             "sigma.Q",
+                             "r",  "loglik", "N", "N0",
+                             "b0.U1", "b1.U1",
+                             "b0.U2", "b1.U2",
                              FL.missing.y)
 
 Rhat.params <- "^U|^mean.|^sigma.|^b|^N"
@@ -299,8 +302,20 @@ max.big.rank.Rhat <- lapply(rank.Rhat,
 looic <- lapply(out.list,
                 FUN = function(x) x$loo.out)
 
+looic.table.list <- lapply(looic, FUN = function(x){
+  out <- data.frame(looic = x$estimates["looic", "Estimate"],
+                    SE = x$estimates["looic", "SE"])
+  return(out)
+})
+
+looic.table <- do.call("rbind", looic.table.list) %>%
+  rownames_to_column(var = "ID") %>%
+  arrange(by = "looic") %>%
+  mutate(dLOOIC = looic - min(looic))
+
 # Models 1-3 are not that different
-best.model <- 1
+#best.model <- as.numeric(looic.table[1, "ID"])
+best.model <- 2
 out.best <- out.list[[best.model]]
 rm(list = "out.list")
 
@@ -311,8 +326,14 @@ mcmc_hist(out.best$jags.out$samples, FL.missing.y[25:36], binwidth = 1)
 mcmc_hist(out.best$jags.out$samples, FL.missing.y[37:48], binwidth = 1)
 mcmc_hist(out.best$jags.out$samples, FL.missing.y[49:61], binwidth = 1)
 
-# Rate of change for before and after 2012
-mcmc_dens(out.best$jags.out$samples, c("mean.U1", "mean.U2"))
+if (str_detect(model.file.names[best.model], "2Us"))
+  # Rate of change for before and after 2012
+  mcmc_dens(out.best$jags.out$samples, c("mean.U1", "mean.U2"))
+
+if (str_detect(model.file.names[best.model], "_U_"))
+  # Rate of change for before and after 2012
+  mcmc_dens(out.best$jags.out$samples, c("mean.U1"))
+
 
 jags.data.df <- data.frame(year = c(FL.years[FL.year.1toT.vec == 1], 
                                     FL.years[FL.year.1toT.vec > 1]),
@@ -332,7 +353,8 @@ for (k in 1:nrow(FL.summary.years)){
 # Look at the number per year as the sum of all beaches
 jags.data.df %>%
   arrange(by = beach) %>%
-  pivot_wider(id_cols = year, id_expand = T,
+  pivot_wider(id_cols = year, 
+              id_expand = T,
               names_from = beach,
               values_from = nest) %>%
   column_to_rownames("year") -> nest.data.beach
@@ -343,4 +365,17 @@ nest.per.year <- data.frame(year = seq(from = min(FL.summary.years$year.1),
                             n.beaches = rowSums(!is.na(nest.data.beach))) %>%
   mutate(nests.per.beach = n.nests/n.beaches,
          var = apply(nest.data.beach, FUN = var, MARGIN = 1, na.rm = T))
+
+N.hats.sum <- data.frame(Year = as.numeric(rownames(nest.data.beach)),
+                         N = colSums(out.best$jags.out$mean$N, na.rm = T),
+                         low.N = colSums(out.best$jags.out$q2.5$N, na.rm = T),
+                         high.N  = colSums(out.best$jags.out$q97.5$N, na.rm = T))
+
+p.N.hats <- ggplot(N.hats.sum) +
+  geom_ribbon(aes(x = Year, 
+                  ymin = low.N, ymax = high.N),
+              fill = "orange", alpha = 0.5) +
+  geom_point(aes(x = Year, y = N)) +
+  geom_path(aes(x = Year, y = N)) 
+  #geom_errorbar(aes(x = Year, ymin = low.N, ymax = high.N))
 
