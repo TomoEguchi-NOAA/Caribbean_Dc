@@ -315,7 +315,7 @@ looic.table <- do.call("rbind", looic.table.list) %>%
 
 # Models 1-3 are not that different
 #best.model <- as.numeric(looic.table[1, "ID"])
-best.model <- 2
+best.model <- 4
 out.best <- out.list[[best.model]]
 rm(list = "out.list")
 
