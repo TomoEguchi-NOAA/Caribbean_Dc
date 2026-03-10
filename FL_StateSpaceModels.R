@@ -264,6 +264,9 @@ for (k in 1:length(model.file.names)){
                              cores = MCMC.params$n.chains, 
                              k_threshold = 0.7)
     
+    # These summary statistics are used to compute ESS
+    summary.posterior <- posterior::summarise_draws(posterior::as_draws(jm$samples))
+    
     out.list[[k]] <- list(jags.out = jm,
                           jags.data = jags.data.FL.2,
                           Run.Date = tic,
@@ -271,7 +274,8 @@ for (k in 1:length(model.file.names)){
                           MCMC.params = MCMC.params,
                           Rmax = Rmax,
                           loo.out = loo.out,
-                          parameters = parameters.to.monitor.2)
+                          parameters = parameters.to.monitor.2,
+                          posterior.summary = summary.posterior)
     
     saveRDS(out.list[[k]], 
             file = out.file.name)
@@ -297,6 +301,33 @@ max.big.rank.Rhat <- lapply(rank.Rhat,
                             FUN = function(x) max(x))
 
 # From rank-normalized Rhats, all models seem okay.
+Rhat.table <- data.frame(n.big.Rhat = unlist(n.big.rank.Rhat),
+                         max.Rhat = unlist(max.big.rank.Rhat)) %>%
+  rownames_to_column(var = "ID")
+
+
+# ESS computations
+ESS.bulk <- lapply(out.list,
+                   FUN = function(x) {
+                     x$posterior.summary %>%
+                       select(variable, ess_bulk) %>%
+                       na.omit() %>%
+                       arrange(ess_bulk) -> ESS.bulk
+                   })
+
+ESS.tail <- lapply(out.list,
+                   FUN = function(x) {
+                     x$posterior.summary %>%
+                       select(variable, ess_tail) %>%
+                       na.omit() %>%
+                       arrange(ess_tail) -> ESS.tail
+                   })
+
+min.ESS.table <- data.frame(ESS.bulk = lapply(ESS.bulk, 
+                                    FUN = function(x) min(x$ess_bulk)) %>% unlist(),
+                      ESS.tail = lapply(ESS.tail, 
+                                    FUN = function(x) min(x$ess_tail)) %>% unlist()) %>%
+  rownames_to_column(var = "ID")
 
 # Check goodness-of-fit
 looic <- lapply(out.list,
@@ -311,11 +342,15 @@ looic.table.list <- lapply(looic, FUN = function(x){
 looic.table <- do.call("rbind", looic.table.list) %>%
   rownames_to_column(var = "ID") %>%
   arrange(by = "looic") %>%
-  mutate(dLOOIC = looic - min(looic))
+  mutate(dLOOIC = looic - min(looic)) %>%
+  left_join(min.ESS.table, by = "ID") %>%
+  left_join(Rhat.table, by = "ID")
 
-# Models 1-3 are not that different
+# Models 2 and 3 are not very good with respect to ESS values. Between
+# 1 and 4, they are not that different. M4 has the lowest LOOIC. But, 
+# M1 has no large Rhats. So, go with M1.
 #best.model <- as.numeric(looic.table[1, "ID"])
-best.model <- 4
+best.model <- 1
 out.best <- out.list[[best.model]]
 rm(list = "out.list")
 
@@ -359,10 +394,10 @@ jags.data.df %>%
               values_from = nest) %>%
   column_to_rownames("year") -> nest.data.beach
 
-nest.per.year <- data.frame(year = seq(from = min(FL.summary.years$year.1),
-                                       to = max(FL.summary.years$year.2)),
-                            n.nests = rowSums(nest.data.beach, na.rm = T),
-                            n.beaches = rowSums(!is.na(nest.data.beach))) %>%
+nests.per.year <- data.frame(year = seq(from = min(FL.summary.years$year.1),
+                                        to = max(FL.summary.years$year.2)),
+                             n.nests = rowSums(nest.data.beach, na.rm = T),
+                             n.beaches = rowSums(!is.na(nest.data.beach))) %>%
   mutate(nests.per.beach = n.nests/n.beaches,
          var = apply(nest.data.beach, FUN = var, MARGIN = 1, na.rm = T))
 
